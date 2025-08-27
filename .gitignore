@@ -1,2 +1,7 @@
 scripts/
 pygen/
+
+# Secrets and virtualenvs
+.env
+venv/
+.venv/
