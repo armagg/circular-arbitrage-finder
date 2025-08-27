@@ -1,0 +1,30 @@
+syntax = "proto3";
+package md;
+option go_package = "proto/md";
+
+message MarketId { string exchange = 1; string symbol = 2; }
+
+message Level { double price = 1; double qty = 2; }
+
+message OrderBookDelta {
+  MarketId market = 1;
+  uint64 sequence = 2;
+  uint64 ts_ns = 3;
+  repeated Level bids = 4;
+  repeated Level asks = 5;
+  bool is_snapshot = 6;
+}
+
+message StreamRequest { repeated MarketId markets = 1; }
+
+service OrderBookFeed {
+  rpc StreamBooks(stream StreamRequest) returns (stream OrderBookDelta);
+}
+
+message Ack { bool ok = 1; }
+
+service OrderBookIngress {
+  rpc PushDeltas(stream OrderBookDelta) returns (Ack);
+}
+
+

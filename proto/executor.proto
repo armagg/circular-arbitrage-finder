@@ -1,0 +1,28 @@
+syntax = "proto3";
+package exec;
+option go_package = "proto/exec";
+
+message TriangleLeg {
+  string market = 1;
+  string side = 2;
+  double qty = 3;
+  double limit_price = 4;
+}
+
+message Plan {
+  string exchange = 1;
+  repeated TriangleLeg legs = 2;
+  double expected_profit_quote = 3;
+  string quote_ccy = 4;
+  uint64 valid_ms = 5;
+  double max_slippage_bp = 6;
+  string plan_id = 7;
+}
+
+message ProposeReply { bool accepted = 1; string reason = 2; }
+
+service Executor {
+  rpc ProposePlan(Plan) returns (ProposeReply);
+}
+
+

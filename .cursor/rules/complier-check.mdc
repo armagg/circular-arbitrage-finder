@@ -1,0 +1,5 @@
+---
+description: always check for compiler warnings and errors after making a change in a file. then correct that error.
+globs:
+alwaysApply: true
+---

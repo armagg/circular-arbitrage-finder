@@ -1,0 +1,30 @@
+quote_assets:
+  - USDT
+  - USD
+  - BTC
+  - IRT
+
+fees: 
+  default:
+    taker: 10.0
+    maker: 5.0
+  exchanges:
+    BINANCE:
+      USDT:
+        taker: 7.0
+        maker: 2.0
+      BTC:
+        taker: 6.0
+        maker: 1.0
+    RAMZINEX:
+      IRT:
+        taker: 20.0
+        maker: 10.0
+
+strategy:
+  min_profit_edge: 1.0001 # minimum multiplicative edge, e.g., 1.0001 = 0.01% profit
+  slippage_bp: 1.0       # basis points to haircut prices for slippage
+  trade_amount: 100.0    # initial quote amount for simulation
+
+log:
+  level: "info" # debug, info, warn, error, fatal, panic
