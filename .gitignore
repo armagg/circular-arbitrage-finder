@@ -5,3 +5,9 @@ pygen/
 .env
 venv/
 .venv/
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
