@@ -7,14 +7,14 @@ import (
 	"github.com/armagg/circular-arbitrage-finder/pkg/types"
 )
 
-// Simulator evaluates triangles using top-of-book prices and fees.
+
 type Simulator interface {
 	EvaluateTOB(t types.Triangle, markets []types.Market, tobBySymbol func(symbol string) (types.TopOfBook, bool), feesBySymbol func(symbol string) (types.Fee, bool), targetQuote float64) (types.Plan, bool)
 }
 
 type TOBSimulator struct {
-	MinEdge    float64 // minimum multiplicative edge, e.g., 1.0002
-	SlippageBp float64 // haircuts on prices when forming limit prices
+	MinEdge    float64
+	SlippageBp float64
 }
 
 func NewTOBSimulator(minEdge, slippageBp float64) *TOBSimulator {
@@ -22,7 +22,7 @@ func NewTOBSimulator(minEdge, slippageBp float64) *TOBSimulator {
 }
 
 func (s *TOBSimulator) EvaluateTOB(t types.Triangle, markets []types.Market, tobBySymbol func(symbol string) (types.TopOfBook, bool), feesBySymbol func(symbol string) (types.Fee, bool), targetQuote float64) (types.Plan, bool) {
-	// Collect TOB and fees
+
 	tob := make([]types.TopOfBook, 3)
 	fee := make([]types.Fee, 3)
 	symbols := make([]string, 3)
@@ -41,52 +41,52 @@ func (s *TOBSimulator) EvaluateTOB(t types.Triangle, markets []types.Market, tob
 		fee[i] = f
 	}
 
-	// Compute multiplicative rate through the cycle using TOB and fees
+
 	rate := 1.0
 	for i := 0; i < 3; i++ {
 		mid := t.MarketIds[i]
 		m := markets[mid]
-		if t.Dirs[i] > 0 { // buy base with quote at ask
+		if t.Dirs[i] > 0 {
 			px := tob[i].AskPx * (1.0 + s.SlippageBp/10000.0)
 			feeMul := 1.0 - fee[i].TakerBp/10000.0
-			// Convert quote -> base -> carried to next leg via base
-			// In multiplicative terms for value in quote-space, buying reduces value by px and fees
-			// Using ratio form: value_next = value_current / px * feeMul
+
+
+
 			rate *= (1.0 / px) * feeMul
-		} else { // sell base for quote at bid
+		} else {
 			px := tob[i].BidPx * (1.0 - s.SlippageBp/10000.0)
 			feeMul := 1.0 - fee[i].TakerBp/10000.0
-			// value_next = value_current * px * feeMul
+
 			rate *= px * feeMul
 		}
-		_ = m // reserved for precision/steps in later depth-aware implementation
+		_ = m
 	}
 
 	if rate <= s.MinEdge {
 		return types.Plan{}, false
 	}
 
-	// Size legs naively from targetQuote and TOB; ensure positive, leave exact rounding for later.
-	// Start with value in quote currency of leg0's market quote.
+
+
 	legs := [3]types.TriangleLeg{}
 	value := targetQuote
 	for i := 0; i < 3; i++ {
 		m := markets[t.MarketIds[i]]
-		if t.Dirs[i] > 0 { // buy base with quote
+		if t.Dirs[i] > 0 {
 			px := tob[i].AskPx * (1.0 + s.SlippageBp/10000.0)
 			qty := value / px
 			legs[i] = types.TriangleLeg{Market: m.Symbol, Side: types.SideBuy, Qty: qty, LimitPrice: px}
-			// after trade, carry base quantity forward as value in base units for next leg
+
 			value = qty
-		} else { // sell base for quote
+		} else {
 			px := tob[i].BidPx * (1.0 - s.SlippageBp/10000.0)
-			qty := value // sell all base value
+			qty := value
 			legs[i] = types.TriangleLeg{Market: m.Symbol, Side: types.SideSell, Qty: qty, LimitPrice: px}
-			// after trade, carry quote value
+
 			value = qty * px
 		}
 	}
-	// Final value is in the starting quote currency units
+
 	expectedProfit := value - targetQuote
 	if !isFinite(expectedProfit) || expectedProfit <= 0 {
 		return types.Plan{}, false
@@ -99,7 +99,7 @@ func (s *TOBSimulator) EvaluateTOB(t types.Triangle, markets []types.Market, tob
 		QuoteCurrency:       markets[t.MarketIds[0]].Quote,
 		ValidMs:             250,
 		MaxSlippageBp:       s.SlippageBp,
-		PlanID:              "", // can be filled by caller
+		PlanID:              "",
 	}
 	return plan, true
 }

@@ -31,7 +31,7 @@ func (d *Detector) OnMarketChange(exchange, symbol string, targetQuote float64) 
 	key := fmt.Sprintf("%s:%s", strings.ToUpper(exchange), strings.ToUpper(symbol))
 	mid, ok := d.Index.MarketIndexBySymbol[key]
 	if !ok {
-		// This should not happen if the ingest layer is correctly adding markets first.
+
 		logger.Log.WithField("market", key).Warn("detector: received update for unknown market")
 		return
 	}

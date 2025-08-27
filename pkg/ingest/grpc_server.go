@@ -37,7 +37,7 @@ func (s *GRPCServer) PushDeltas(stream mdpb.OrderBookIngress_PushDeltasServer) e
 		exchange := strings.ToUpper(d.GetMarket().GetExchange())
 		symbol := strings.ToUpper(d.GetMarket().GetSymbol())
 
-		// Ensure market is known before proceeding
+
 		key := fmt.Sprintf("%s:%s", exchange, symbol)
 		if _, ok := s.Detector.Index.MarketIndexBySymbol[key]; !ok {
 			market, err := s.Config.ParseMarket(exchange, symbol)
@@ -47,7 +47,7 @@ func (s *GRPCServer) PushDeltas(stream mdpb.OrderBookIngress_PushDeltasServer) e
 					"symbol":   symbol,
 					"error":    err,
 				}).Warn("ingest: failed to parse new market")
-				continue // Skip this delta
+				continue
 			}
 			if _, isNew := s.Detector.Index.AddMarket(market); isNew {
 				s.Detector.Registry.UpsertMarket(market)
@@ -77,7 +77,7 @@ func (s *GRPCServer) PushDeltas(stream mdpb.OrderBookIngress_PushDeltasServer) e
 	}
 }
 
-// Serve starts the gRPC ingress server on the provided address.
+
 func Serve(ctx context.Context, listenAddr string, srv *GRPCServer) error {
 	lis, err := net.Listen("tcp", listenAddr)
 	if err != nil {

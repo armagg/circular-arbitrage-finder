@@ -11,13 +11,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Index stores markets, computed triangles, and reverse lookup for affected triangles.
+
 type Index struct {
 	Markets             []types.Market
-	MarketIndexBySymbol map[string]int // key is EXCHANGE:SYMBOL
+	MarketIndexBySymbol map[string]int
 	marketsByExchange   map[string]map[string]int
 	Triangles           []types.Triangle
-	TrianglesByMarket   map[int][]int // marketId -> triangle indices
+	TrianglesByMarket   map[int][]int
 	mu                  sync.Mutex
 }
 
@@ -31,8 +31,8 @@ func NewIndex() *Index {
 	}
 }
 
-// AddMarket adds a market to the index and computes any new triangles that are formed.
-// It returns true if the market was new.
+
+
 func (idx *Index) AddMarket(m types.Market) (newTriangles []types.Triangle, isNew bool) {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
@@ -73,8 +73,8 @@ func (idx *Index) AddMarket(m types.Market) (newTriangles []types.Triangle, isNe
 	return newTriangles, true
 }
 
-// findNewTriangles checks for new triangles when a new market `m` is added.
-// It only considers intra-exchange triangles.
+
+
 func (idx *Index) findNewTriangles(m types.Market, mID int) []types.Triangle {
 	var triangles []types.Triangle
 
@@ -87,7 +87,7 @@ func (idx *Index) findNewTriangles(m types.Market, mID int) []types.Triangle {
 		marketsOnExchange = append(marketsOnExchange, idx.Markets[id])
 	}
 
-	// Case 1: m is A/C. Find existing A/B and B/C.
+
 	a1, c1 := m.Base, m.Quote
 	for _, m2 := range marketsOnExchange {
 		if m2.Base == a1 && m2.Quote != c1 {
@@ -99,7 +99,7 @@ func (idx *Index) findNewTriangles(m types.Market, mID int) []types.Triangle {
 		}
 	}
 
-	// Case 2: m is A/B. Find existing A/C and B/C.
+
 	a2, b2 := m.Base, m.Quote
 	for _, m1 := range marketsOnExchange {
 		if m1.Base == a2 && m1.Quote != b2 {
@@ -111,7 +111,7 @@ func (idx *Index) findNewTriangles(m types.Market, mID int) []types.Triangle {
 		}
 	}
 
-	// Case 3: m is B/C. Find existing A/C and A/B.
+
 	b3, c3 := m.Base, m.Quote
 	for _, m1 := range marketsOnExchange {
 		if m1.Quote == c3 && m1.Base != b3 {

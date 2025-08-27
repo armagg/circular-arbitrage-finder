@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-// GRPCPublisher sends plans to an Executor service.
+
 type GRPCPublisher struct {
 	client exppb.ExecutorClient
 }

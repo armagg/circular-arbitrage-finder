@@ -6,7 +6,7 @@ import (
 	"github.com/armagg/circular-arbitrage-finder/pkg/types"
 )
 
-// TopOfBookStore provides thread-safe access to best bid/ask snapshots per market symbol.
+
 type TopOfBookStore struct {
 	mu   sync.RWMutex
 	data map[string]types.TopOfBook

@@ -6,11 +6,10 @@ import (
 	"github.com/armagg/circular-arbitrage-finder/pkg/types"
 )
 
-// MarketRegistry holds market metadata and fees for quick lookup by market symbol.
 type MarketRegistry struct {
 	mu      sync.RWMutex
-	markets map[string]types.Market // key: symbol, e.g., BTCUSDT
-	fees    map[string]types.Fee    // key: symbol
+	markets map[string]types.Market
+	fees    map[string]types.Fee
 }
 
 func NewMarketRegistry() *MarketRegistry {
@@ -46,7 +45,7 @@ func (r *MarketRegistry) GetFee(symbol string) (types.Fee, bool) {
 	return f, ok
 }
 
-// Snapshot returns a copy of current markets and fees.
+
 func (r *MarketRegistry) Snapshot() (map[string]types.Market, map[string]types.Fee) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
