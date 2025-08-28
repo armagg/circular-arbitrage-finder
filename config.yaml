@@ -25,6 +25,10 @@ strategy:
   min_profit_edge: 1.0001 # minimum multiplicative edge, e.g., 1.0001 = 0.01% profit
   slippage_bp: 1.0       # basis points to haircut prices for slippage
   trade_amount: 100.0    # initial quote amount for simulation
+  orderbook_depth: 10
+  trade_amounts:
+    USDT: 100.0
+    IRT: 500000000.0
 
 log:
   level: "info" # debug, info, warn, error, fatal, panic

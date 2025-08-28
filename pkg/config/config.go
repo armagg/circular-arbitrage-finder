@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/armagg/circular-arbitrage-finder/pkg/types"
-
 	"gopkg.in/yaml.v2"
 )
 
@@ -31,9 +30,11 @@ type FeeConfig struct {
 }
 
 type Strategy struct {
-	MinProfitEdge float64 `yaml:"min_profit_edge"`
-	SlippageBp    float64 `yaml:"slippage_bp"`
-	TradeAmount   float64 `yaml:"trade_amount"`
+	MinProfitEdge float64            `yaml:"min_profit_edge"`
+	SlippageBp    float64            `yaml:"slippage_bp"`
+	TradeAmount   float64            `yaml:"trade_amount"`
+	OrderbookDepth int               `yaml:"orderbook_depth"`
+	TradeAmounts  map[string]float64 `yaml:"trade_amounts"`
 }
 
 type LogConfig struct {
@@ -49,9 +50,7 @@ func Load(path string) (*Config, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config yaml: %w", err)
 	}
-	sort.Slice(cfg.QuoteAssets, func(i, j int) bool {
-		return len(cfg.QuoteAssets[i]) > len(cfg.QuoteAssets[j])
-	})
+	sort.Slice(cfg.QuoteAssets, func(i, j int) bool { return len(cfg.QuoteAssets[i]) > len(cfg.QuoteAssets[j]) })
 	return &cfg, nil
 }
 
@@ -60,15 +59,10 @@ func (c *Config) ParseMarket(exchange, symbol string) (types.Market, error) {
 	if err != nil {
 		return types.Market{}, fmt.Errorf("failed to parse symbol %s: %w", symbol, err)
 	}
-	return types.Market{
-		Exchange: exchange,
-		Symbol:   symbol,
-		Base:     base,
-		Quote:    quote,
-	}, nil
+	return types.Market{Exchange: exchange, Symbol: symbol, Base: base, Quote: quote}, nil
 }
 
-func parseSymbol(symbol string, quoteAssets []string) (base, quote string, err error) {
+func parseSymbol(symbol string, quoteAssets []string) (string, string, error) {
 	for _, q := range quoteAssets {
 		if strings.HasSuffix(symbol, q) {
 			return strings.TrimSuffix(symbol, q), q, nil
@@ -78,11 +72,10 @@ func parseSymbol(symbol string, quoteAssets []string) (base, quote string, err e
 }
 
 func (c *Config) GetFee(exchange, quoteAsset string) types.Fee {
-	exchange = strings.ToUpper(exchange)
-	quoteAsset = strings.ToUpper(quoteAsset)
-
-	if exFees, ok := c.Fees.Exchanges[exchange]; ok {
-		if fee, ok := exFees[quoteAsset]; ok {
+	ex := strings.ToUpper(exchange)
+	qt := strings.ToUpper(quoteAsset)
+	if exFees, ok := c.Fees.Exchanges[ex]; ok {
+		if fee, ok := exFees[qt]; ok {
 			return types.Fee{TakerBp: fee.Taker, MakerBp: fee.Maker}
 		}
 	}

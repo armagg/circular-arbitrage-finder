@@ -38,6 +38,13 @@ type TopOfBook struct {
 	TsNs  int64
 }
 
+type OrderBook struct {
+	Bids []Level
+	Asks []Level
+	Seq  uint64
+	TsNs int64
+}
+
 type Triangle struct {
 	MarketIds [3]int
 	Dirs      [3]int8
