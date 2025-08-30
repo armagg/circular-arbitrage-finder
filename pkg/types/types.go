@@ -2,6 +2,7 @@ package types
 
 type Side string
 
+
 const (
 	SideBuy  Side = "BUY"
 	SideSell Side = "SELL"
@@ -12,10 +13,11 @@ type Market struct {
 	Symbol   string
 	Base     string
 	Quote    string
+	Multiplier int64
 
 	MinQty      float64
 	StepSize    float64
-	MinNotional float64
+	MinNotional float64 
 	PriceTick   float64
 }
 
@@ -30,12 +32,12 @@ type Level struct {
 }
 
 type TopOfBook struct {
-	BidPx float64
+	BidPx float64 
 	BidSz float64
 	AskPx float64
 	AskSz float64
 	Seq   uint64
-	TsNs  int64
+	TsNs  int64 //
 }
 
 type OrderBook struct {
