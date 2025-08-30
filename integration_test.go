@@ -46,13 +46,20 @@ func TestFullArbitrageFlow(t *testing.T) {
 	// Verify results
 	publishedPlans := pub.GetPublishedPlans()
 
-	// The system may or may not find arbitrage depending on exact calculations
-	// The important thing is that it processes the request without panicking
+	// With the fixed test data, we should find arbitrage opportunities
 	t.Logf("Found %d arbitrage opportunities", len(publishedPlans))
+
+	if len(publishedPlans) == 0 {
+		t.Error("Expected to find arbitrage opportunities with profitable test data")
+	}
 
 	for _, plan := range publishedPlans {
 		if !testutils.AssertPlanValid(plan) {
 			t.Errorf("Plan is not valid: %+v", plan)
+		}
+
+		if plan.ExpectedProfitQuote <= 0 {
+			t.Errorf("Expected positive profit, got: %.2f", plan.ExpectedProfitQuote)
 		}
 
 		t.Logf("Found profitable arbitrage: %s, profit: %.2f %s",
@@ -219,7 +226,13 @@ func TestProfitSimulatorIntegration(t *testing.T) {
 	markets := testutils.CreateTestMarkets()
 	triangle := testutils.CreateTestTriangle(markets, [3]int{0, 1, 2})
 
-	// Test with profitable prices
+	// Test with profitable prices - use the graph's triangle configuration
+	graphTriangle := types.Triangle{
+		MarketIds: [3]int{1, 2, 0},    // ETHUSDT, ETHBTC, BTCUSDT
+		Dirs:      [3]int8{1, -1, -1}, // Buy ETHUSDT, Sell ETHBTC, Sell BTCUSDT
+		QuoteCcy:  "USDT",
+	}
+
 	profitablePrices := testutils.CreateProfitableArbitragePrices()
 
 	tobBySymbol := func(symbol string) (types.TopOfBook, bool) {
@@ -231,13 +244,20 @@ func TestProfitSimulatorIntegration(t *testing.T) {
 		return types.Fee{TakerBp: 0.1, MakerBp: 0.05}, true
 	}
 
-	plan, found := sim.EvaluateTOB(triangle, markets, tobBySymbol, feeBySymbol, 1000.0)
+	plan, found := sim.EvaluateTOB(graphTriangle, markets, tobBySymbol, feeBySymbol, 1000.0)
 
-	// The profit simulator may or may not find arbitrage depending on exact calculations
 	t.Logf("Profit simulation found: %v, profit: %f", found, plan.ExpectedProfitQuote)
+
+	if !found {
+		t.Error("Expected to find profitable arbitrage with test data")
+	}
 
 	if found && plan.ExpectedProfitQuote <= 0 {
 		t.Errorf("Found arbitrage but profit is not positive: %f", plan.ExpectedProfitQuote)
+	}
+
+	if found {
+		t.Logf("Successfully found arbitrage with profit: %.2f %s", plan.ExpectedProfitQuote, plan.QuoteCurrency)
 	}
 
 	// Test with non-profitable prices

@@ -42,6 +42,8 @@ func (s *TOBSimulator) EvaluateTOB(t types.Triangle, markets []types.Market, tob
 	}
 
 
+
+
 	rate := 1.0
 	for i := 0; i < 3; i++ {
 		mid := t.MarketIds[i]

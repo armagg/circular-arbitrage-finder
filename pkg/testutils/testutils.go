@@ -3,6 +3,7 @@ package testutils
 import (
 	"sync"
 
+	"github.com/armagg/circular-arbitrage-finder/pkg/apiout"
 	"github.com/armagg/circular-arbitrage-finder/pkg/types"
 )
 
@@ -12,6 +13,9 @@ type MockPublisher struct {
 	plans   []types.Plan
 	publish func(plan types.Plan) error
 }
+
+// Ensure MockPublisher implements apiout.Publisher interface
+var _ apiout.Publisher = (*MockPublisher)(nil)
 
 func NewMockPublisher() *MockPublisher {
 	return &MockPublisher{
@@ -166,9 +170,13 @@ func CreateTestTriangle(markets []types.Market, marketIds [3]int) types.Triangle
 
 	quoteCcy := markets[marketIds[0]].Quote
 
+	// Create proper arbitrage directions for BTC->ETH->BTC cycle
+	// Market 0: BTCUSDT, Market 1: ETHUSDT, Market 2: ETHBTC
+	// To arbitrage: Buy BTC, Sell ETH->BTC, Sell ETH->USDT
+	// This gives us: USDT -> BTC -> ETH -> USDT (back to USDT)
 	return types.Triangle{
 		MarketIds: marketIds,
-		Dirs:      [3]int8{1, -1, -1},
+		Dirs:      [3]int8{1, 1, -1},  // Buy BTCUSDT, Buy ETHBTC, Sell ETHUSDT
 		QuoteCcy:  quoteCcy,
 	}
 }
@@ -201,10 +209,16 @@ func CreateTestOrderBook(symbol string, bidPrice, askPrice float64) types.OrderB
 
 // CreateProfitableArbitragePrices creates a set of prices that should result in profitable arbitrage
 func CreateProfitableArbitragePrices() map[string]types.TopOfBook {
+	// Create prices that will result in profitable arbitrage for graph's triangle [1, 2, 0] with directions [1, -1, -1]
+	// Market 1: ETHUSDT (Buy), Market 2: ETHBTC (Sell), Market 0: BTCUSDT (Sell)
+	// Path: USDT -> ETH -> BTC -> USDT
+
+	// Set prices to create clear arbitrage opportunity for this specific triangle
+	// Need to create a rate > 0.001 (0.1%) after fees and slippage
 	return map[string]types.TopOfBook{
-		"BTCUSDT": {BidPx: 49800.0, AskPx: 49900.0, BidSz: 2.1, AskSz: 1.8},
-		"ETHUSDT": {BidPx: 2980.0, AskPx: 2990.0, BidSz: 10.0, AskSz: 8.0},
-		"ETHBTC":  {BidPx: 0.0598, AskPx: 0.0600, BidSz: 65.0, AskSz: 62.0},
+		"ETHUSDT": {BidPx: 3000.0, AskPx: 3005.0, BidSz: 10.0, AskSz: 8.0},      // Buy ETH at 3005 USDT (lower ask price)
+		"ETHBTC":  {BidPx: 0.0605, AskPx: 0.0610, BidSz: 65.0, AskSz: 62.0},     // Sell ETH at 0.0605 BTC (higher bid price)
+		"BTCUSDT": {BidPx: 50100.0, AskPx: 50200.0, BidSz: 2.1, AskSz: 1.8},     // Sell BTC at 50100 USDT (higher bid price)
 	}
 }
 
