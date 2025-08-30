@@ -375,6 +375,135 @@ func TestMemoryManagementIntegration(t *testing.T) {
 	t.Log("Memory management test completed")
 }
 
+// TestIRTArbitrageWithOrderBookDepth tests IRT-based arbitrage using full order book depth
+func TestIRTArbitrageWithOrderBookDepth(t *testing.T) {
+	// Create markets for BTC-USDT-IRT arbitrage
+	markets := []types.Market{
+		{
+			Exchange: "nobitex", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT",
+			Multiplier: 100000000, MinQty: 0.0001, StepSize: 0.0001, MinNotional: 10.0, PriceTick: 0.01,
+		},
+		{
+			Exchange: "nobitex", Symbol: "BTCIRT", Base: "BTC", Quote: "IRT",
+			Multiplier: 100000000, MinQty: 0.0001, StepSize: 0.0001, MinNotional: 1000000.0, PriceTick: 1000.0,
+		},
+		{
+			Exchange: "nobitex", Symbol: "USDTIRT", Base: "USDT", Quote: "IRT",
+			Multiplier: 100000000, MinQty: 0.1, StepSize: 0.1, MinNotional: 1000000.0, PriceTick: 1000.0,
+		},
+	}
+
+	// Create triangle for BTC->IRT->USDT->BTC cycle
+	triangle := types.Triangle{
+		MarketIds: [3]int{0, 1, 2}, // BTCUSDT, BTCIRT, USDTIRT
+		Dirs:      [3]int8{1, -1, -1}, // Buy BTCUSDT, Sell BTCIRT, Sell USDTIRT
+		QuoteCcy:  "USDT",
+	}
+
+	// Load config to get proper fee configuration
+	cfg, err := config.Load("config.yaml")
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	// Create realistic IRT order books with deep liquidity
+	orderBooks := map[string]types.OrderBook{
+		"BTCUSDT": {
+			Bids: []types.Level{
+				{Price: 45000.0, Qty: 2.5}, {Price: 44950.0, Qty: 3.1}, {Price: 44900.0, Qty: 4.2},
+				{Price: 44850.0, Qty: 2.8}, {Price: 44800.0, Qty: 5.5}, {Price: 44750.0, Qty: 3.9},
+				{Price: 44700.0, Qty: 6.1}, {Price: 44650.0, Qty: 4.7}, {Price: 44600.0, Qty: 7.3},
+				{Price: 44550.0, Qty: 5.2}, {Price: 44500.0, Qty: 8.4}, {Price: 44450.0, Qty: 6.8},
+				{Price: 44400.0, Qty: 9.1}, {Price: 44350.0, Qty: 7.5}, {Price: 44300.0, Qty: 10.2},
+				{Price: 44250.0, Qty: 8.9}, {Price: 44200.0, Qty: 11.7}, {Price: 44150.0, Qty: 9.6},
+				{Price: 44100.0, Qty: 12.8}, {Price: 44050.0, Qty: 10.3},
+			},
+			Asks: []types.Level{
+				{Price: 45100.0, Qty: 2.1}, {Price: 45150.0, Qty: 2.8}, {Price: 45200.0, Qty: 3.7},
+				{Price: 45250.0, Qty: 2.4}, {Price: 45300.0, Qty: 4.9}, {Price: 45350.0, Qty: 3.2},
+				{Price: 45400.0, Qty: 5.6}, {Price: 45450.0, Qty: 3.8}, {Price: 45500.0, Qty: 6.7},
+				{Price: 45550.0, Qty: 4.3}, {Price: 45600.0, Qty: 7.1}, {Price: 45650.0, Qty: 4.9},
+				{Price: 45700.0, Qty: 8.2}, {Price: 45750.0, Qty: 5.4}, {Price: 45800.0, Qty: 9.3},
+				{Price: 45850.0, Qty: 6.1}, {Price: 45900.0, Qty: 10.5}, {Price: 45950.0, Qty: 6.8},
+				{Price: 46000.0, Qty: 11.9}, {Price: 46050.0, Qty: 7.2},
+			},
+		},
+		"BTCIRT": {
+			Bids: []types.Level{
+				{Price: 2100000000.0, Qty: 0.5}, {Price: 2090000000.0, Qty: 0.7}, {Price: 2080000000.0, Qty: 0.9},
+				{Price: 2070000000.0, Qty: 0.6}, {Price: 2060000000.0, Qty: 1.1}, {Price: 2050000000.0, Qty: 0.8},
+				{Price: 2040000000.0, Qty: 1.2}, {Price: 2030000000.0, Qty: 0.9}, {Price: 2020000000.0, Qty: 1.4},
+				{Price: 2010000000.0, Qty: 1.0}, {Price: 2000000000.0, Qty: 1.6}, {Price: 1990000000.0, Qty: 1.1},
+				{Price: 1980000000.0, Qty: 1.8}, {Price: 1970000000.0, Qty: 1.3}, {Price: 1960000000.0, Qty: 2.0},
+				{Price: 1950000000.0, Qty: 1.4}, {Price: 1940000000.0, Qty: 2.2}, {Price: 1930000000.0, Qty: 1.6},
+				{Price: 1920000000.0, Qty: 2.4}, {Price: 1910000000.0, Qty: 1.7},
+			},
+			Asks: []types.Level{
+				{Price: 2120000000.0, Qty: 0.4}, {Price: 2130000000.0, Qty: 0.6}, {Price: 2140000000.0, Qty: 0.8},
+				{Price: 2150000000.0, Qty: 0.5}, {Price: 2160000000.0, Qty: 0.9}, {Price: 2170000000.0, Qty: 0.7},
+				{Price: 2180000000.0, Qty: 1.0}, {Price: 2190000000.0, Qty: 0.8}, {Price: 2200000000.0, Qty: 1.2},
+				{Price: 2210000000.0, Qty: 0.9}, {Price: 2220000000.0, Qty: 1.3}, {Price: 2230000000.0, Qty: 1.0},
+				{Price: 2240000000.0, Qty: 1.5}, {Price: 2250000000.0, Qty: 1.1}, {Price: 2260000000.0, Qty: 1.7},
+				{Price: 2270000000.0, Qty: 1.2}, {Price: 2280000000.0, Qty: 1.9}, {Price: 2290000000.0, Qty: 1.4},
+				{Price: 2300000000.0, Qty: 2.1}, {Price: 2310000000.0, Qty: 1.5},
+			},
+		},
+		"USDTIRT": {
+			Bids: []types.Level{
+				{Price: 420000.0, Qty: 100.0}, {Price: 419000.0, Qty: 120.0}, {Price: 418000.0, Qty: 140.0},
+				{Price: 417000.0, Qty: 110.0}, {Price: 416000.0, Qty: 160.0}, {Price: 415000.0, Qty: 130.0},
+				{Price: 414000.0, Qty: 180.0}, {Price: 413000.0, Qty: 150.0}, {Price: 412000.0, Qty: 200.0},
+				{Price: 411000.0, Qty: 170.0}, {Price: 410000.0, Qty: 220.0}, {Price: 409000.0, Qty: 190.0},
+				{Price: 408000.0, Qty: 240.0}, {Price: 407000.0, Qty: 210.0}, {Price: 406000.0, Qty: 260.0},
+				{Price: 405000.0, Qty: 230.0}, {Price: 404000.0, Qty: 280.0}, {Price: 403000.0, Qty: 250.0},
+				{Price: 402000.0, Qty: 300.0}, {Price: 401000.0, Qty: 270.0},
+			},
+			Asks: []types.Level{
+				{Price: 421000.0, Qty: 90.0}, {Price: 422000.0, Qty: 110.0}, {Price: 423000.0, Qty: 130.0},
+				{Price: 424000.0, Qty: 100.0}, {Price: 425000.0, Qty: 150.0}, {Price: 426000.0, Qty: 120.0},
+				{Price: 427000.0, Qty: 170.0}, {Price: 428000.0, Qty: 140.0}, {Price: 429000.0, Qty: 190.0},
+				{Price: 430000.0, Qty: 160.0}, {Price: 431000.0, Qty: 210.0}, {Price: 432000.0, Qty: 180.0},
+				{Price: 433000.0, Qty: 230.0}, {Price: 434000.0, Qty: 200.0}, {Price: 435000.0, Qty: 250.0},
+				{Price: 436000.0, Qty: 220.0}, {Price: 437000.0, Qty: 270.0}, {Price: 438000.0, Qty: 240.0},
+				{Price: 439000.0, Qty: 290.0}, {Price: 440000.0, Qty: 260.0},
+			},
+		},
+	}
+
+	simulator := profit.NewTOBSimulator(0.001, 5.0)
+
+	// Test with different depths
+	for _, maxDepth := range []int{1, 5, 10, 20} {
+		obBySymbol := func(symbol string) (types.OrderBook, bool) {
+			ob, exists := orderBooks[symbol]
+			return ob, exists
+		}
+
+		feeBySymbol := func(symbol string) (types.Fee, bool) {
+			// Use config to get proper fees for each market
+			for _, market := range markets {
+				if market.Symbol == symbol {
+					fee := cfg.GetFee(market.Exchange, market.Quote)
+					return fee, true
+				}
+			}
+			// Fallback to default fees
+			return cfg.GetFee("nobitex", "IRT"), true
+		}
+
+		plan, found := simulator.EvaluateOrderBook(triangle, markets, obBySymbol, feeBySymbol, 1000.0, maxDepth)
+
+		if found {
+			t.Logf("Depth %d: Found arbitrage profit: %.2f USDT", maxDepth, plan.ExpectedProfitQuote)
+			for i, leg := range plan.Legs {
+				t.Logf("  Leg %d: %s %s %.6f @ %.2f", i+1, leg.Side, leg.Market, leg.Qty, leg.LimitPrice)
+			}
+		} else {
+			t.Logf("Depth %d: No arbitrage found", maxDepth)
+		}
+	}
+}
+
 // BenchmarkFullSystem benchmarks the complete arbitrage detection system
 func BenchmarkFullSystem(b *testing.B) {
 	// Setup

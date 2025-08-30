@@ -443,6 +443,443 @@ func BenchmarkTOBSimulatorEvaluateTOB(b *testing.B) {
 	}
 }
 
+// Tests for EvaluateOrderBook function
+func TestTOBSimulatorEvaluateOrderBook(t *testing.T) {
+	sim := NewTOBSimulator(0.0001, 0.1) // Lower thresholds for testing
+
+	markets := []types.Market{
+		{Exchange: "binance", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
+		{Exchange: "binance", Symbol: "ETHBTC", Base: "ETH", Quote: "BTC"},
+		{Exchange: "binance", Symbol: "ETHUSDT", Base: "ETH", Quote: "USDT"},
+	}
+
+	triangle := types.Triangle{
+		MarketIds: [3]int{0, 1, 2},
+		Dirs:      [3]int8{1, -1, -1},
+		QuoteCcy:  "USDT",
+	}
+
+	// Create realistic order book with multiple levels
+	orderBooks := map[string]types.OrderBook{
+		"BTCUSDT": {
+			Bids: []types.Level{
+				{Price: 49900.0, Qty: 2.5}, {Price: 49850.0, Qty: 3.1}, {Price: 49800.0, Qty: 4.2},
+				{Price: 49750.0, Qty: 2.8}, {Price: 49700.0, Qty: 5.5},
+			},
+			Asks: []types.Level{
+				{Price: 50000.0, Qty: 2.1}, {Price: 50050.0, Qty: 2.8}, {Price: 50100.0, Qty: 3.7},
+				{Price: 50150.0, Qty: 2.4}, {Price: 50200.0, Qty: 4.9},
+			},
+		},
+		"ETHBTC": {
+			Bids: []types.Level{
+				{Price: 0.0295, Qty: 65.0}, {Price: 0.0290, Qty: 70.0}, {Price: 0.0285, Qty: 75.0},
+				{Price: 0.0280, Qty: 80.0}, {Price: 0.0275, Qty: 85.0},
+			},
+			Asks: []types.Level{
+				{Price: 0.0300, Qty: 62.0}, {Price: 0.0305, Qty: 67.0}, {Price: 0.0310, Qty: 72.0},
+				{Price: 0.0315, Qty: 77.0}, {Price: 0.0320, Qty: 82.0},
+			},
+		},
+		"ETHUSDT": {
+			Bids: []types.Level{
+				{Price: 1480.0, Qty: 10.0}, {Price: 1475.0, Qty: 12.0}, {Price: 1470.0, Qty: 14.0},
+				{Price: 1465.0, Qty: 11.0}, {Price: 1460.0, Qty: 16.0},
+			},
+			Asks: []types.Level{
+				{Price: 1490.0, Qty: 8.0}, {Price: 1495.0, Qty: 11.0}, {Price: 1500.0, Qty: 13.0},
+				{Price: 1505.0, Qty: 10.0}, {Price: 1510.0, Qty: 15.0},
+			},
+		},
+	}
+
+	obBySymbol := func(symbol string) (types.OrderBook, bool) {
+		ob, exists := orderBooks[symbol]
+		return ob, exists
+	}
+
+	feeBySymbol := func(symbol string) (types.Fee, bool) {
+		return types.Fee{TakerBp: 0.08, MakerBp: 0.04}, true
+	}
+
+	targetQuote := 1000.0
+	maxDepth := 3
+
+	plan, found := sim.EvaluateOrderBook(triangle, markets, obBySymbol, feeBySymbol, targetQuote, maxDepth)
+
+	t.Logf("OrderBook arbitrage found: %v, profit: %f", found, plan.ExpectedProfitQuote)
+
+	if found {
+		if plan.ExpectedProfitQuote <= 0 {
+			t.Errorf("Found arbitrage but profit is not positive: %f", plan.ExpectedProfitQuote)
+		}
+
+		if len(plan.Legs) != 3 {
+			t.Errorf("Expected 3 legs, got %d", len(plan.Legs))
+		}
+
+		if plan.QuoteCurrency != "USDT" {
+			t.Errorf("Expected quote currency USDT, got %s", plan.QuoteCurrency)
+		}
+
+		if plan.Exchange != "binance" {
+			t.Errorf("Expected exchange binance, got %s", plan.Exchange)
+		}
+
+		// Verify legs have reasonable values
+		for i, leg := range plan.Legs {
+			if leg.Qty <= 0 {
+				t.Errorf("Expected positive quantity for leg %d, got %f", i, leg.Qty)
+			}
+			if leg.LimitPrice <= 0 {
+				t.Errorf("Expected positive limit price for leg %d, got %f", i, leg.LimitPrice)
+			}
+			if leg.Market == "" {
+				t.Errorf("Expected non-empty market for leg %d", i)
+			}
+		}
+	}
+}
+
+func TestTOBSimulatorEvaluateOrderBookDepth(t *testing.T) {
+	sim := NewTOBSimulator(0.0001, 0.1)
+
+	markets := []types.Market{
+		{Exchange: "binance", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
+		{Exchange: "binance", Symbol: "ETHBTC", Base: "ETH", Quote: "BTC"},
+		{Exchange: "binance", Symbol: "ETHUSDT", Base: "ETH", Quote: "USDT"},
+	}
+
+	triangle := types.Triangle{
+		MarketIds: [3]int{0, 1, 2},
+		Dirs:      [3]int8{1, -1, -1},
+		QuoteCcy:  "USDT",
+	}
+
+	// Create order books with 5 levels each
+	orderBooks := map[string]types.OrderBook{
+		"BTCUSDT": {
+			Asks: []types.Level{
+				{Price: 50000.0, Qty: 1.0}, {Price: 50010.0, Qty: 2.0}, {Price: 50020.0, Qty: 1.5},
+				{Price: 50030.0, Qty: 2.5}, {Price: 50040.0, Qty: 1.8},
+			},
+			Bids: []types.Level{
+				{Price: 49990.0, Qty: 1.2}, {Price: 49980.0, Qty: 2.1}, {Price: 49970.0, Qty: 1.6},
+				{Price: 49960.0, Qty: 2.3}, {Price: 49950.0, Qty: 1.9},
+			},
+		},
+		"ETHBTC": {
+			Asks: []types.Level{
+				{Price: 0.0300, Qty: 30.0}, {Price: 0.0301, Qty: 35.0}, {Price: 0.0302, Qty: 32.0},
+				{Price: 0.0303, Qty: 38.0}, {Price: 0.0304, Qty: 33.0},
+			},
+			Bids: []types.Level{
+				{Price: 0.0299, Qty: 31.0}, {Price: 0.0298, Qty: 36.0}, {Price: 0.0297, Qty: 33.0},
+				{Price: 0.0296, Qty: 39.0}, {Price: 0.0295, Qty: 34.0},
+			},
+		},
+		"ETHUSDT": {
+			Asks: []types.Level{
+				{Price: 1490.0, Qty: 5.0}, {Price: 1491.0, Qty: 6.0}, {Price: 1492.0, Qty: 5.5},
+				{Price: 1493.0, Qty: 7.0}, {Price: 1494.0, Qty: 6.2},
+			},
+			Bids: []types.Level{
+				{Price: 1489.0, Qty: 5.2}, {Price: 1488.0, Qty: 6.1}, {Price: 1487.0, Qty: 5.6},
+				{Price: 1486.0, Qty: 7.1}, {Price: 1485.0, Qty: 6.3},
+			},
+		},
+	}
+
+	obBySymbol := func(symbol string) (types.OrderBook, bool) {
+		ob, exists := orderBooks[symbol]
+		return ob, exists
+	}
+
+	feeBySymbol := func(symbol string) (types.Fee, bool) {
+		return types.Fee{TakerBp: 0.1, MakerBp: 0.05}, true
+	}
+
+	targetQuote := 1000.0
+
+	// Test different depths
+	testCases := []struct {
+		name     string
+		maxDepth int
+	}{
+		{"Depth 1", 1},
+		{"Depth 3", 3},
+		{"Depth 5", 5},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			plan, found := sim.EvaluateOrderBook(triangle, markets, obBySymbol, feeBySymbol, targetQuote, tc.maxDepth)
+
+			// The function should execute without panicking
+			t.Logf("%s: Arbitrage found: %v, profit: %f", tc.name, found, plan.ExpectedProfitQuote)
+
+			if found {
+				if plan.ExpectedProfitQuote <= 0 {
+					t.Errorf("%s: Found arbitrage but profit is not positive: %f", tc.name, plan.ExpectedProfitQuote)
+				}
+
+				if len(plan.Legs) != 3 {
+					t.Errorf("%s: Expected 3 legs, got %d", tc.name, len(plan.Legs))
+				}
+			}
+		})
+	}
+}
+
+func TestTOBSimulatorEvaluateOrderBookMissingData(t *testing.T) {
+	sim := NewTOBSimulator(0.001, 5.0)
+
+	markets := []types.Market{
+		{Exchange: "binance", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
+		{Exchange: "binance", Symbol: "ETHBTC", Base: "ETH", Quote: "BTC"},
+		{Exchange: "binance", Symbol: "ETHUSDT", Base: "ETH", Quote: "USDT"},
+	}
+
+	triangle := types.Triangle{
+		MarketIds: [3]int{0, 1, 2},
+		Dirs:      [3]int8{1, -1, -1},
+		QuoteCcy:  "USDT",
+	}
+
+	// Mock function that returns missing data for some symbols
+	obBySymbol := func(symbol string) (types.OrderBook, bool) {
+		switch symbol {
+		case "BTCUSDT":
+			return types.OrderBook{}, true // Empty order book
+		case "ETHBTC":
+			return types.OrderBook{
+				Asks: []types.Level{{Price: 0.03, Qty: 10.0}},
+				Bids: []types.Level{{Price: 0.029, Qty: 10.0}},
+			}, true
+		case "ETHUSDT":
+			return types.OrderBook{
+				Asks: []types.Level{{Price: 1500.0, Qty: 10.0}},
+				Bids: []types.Level{{Price: 1490.0, Qty: 10.0}},
+			}, true
+		default:
+			return types.OrderBook{}, false
+		}
+	}
+
+	feeBySymbol := func(symbol string) (types.Fee, bool) {
+		return types.Fee{TakerBp: 0.1, MakerBp: 0.05}, true
+	}
+
+	targetQuote := 1000.0
+	maxDepth := 5
+
+	_, found := sim.EvaluateOrderBook(triangle, markets, obBySymbol, feeBySymbol, targetQuote, maxDepth)
+
+	if found {
+		t.Error("Expected no arbitrage when order book data is missing or empty")
+	}
+}
+
+func TestTOBSimulatorEvaluateOrderBookEdgeCases(t *testing.T) {
+	sim := NewTOBSimulator(0.001, 5.0)
+
+	markets := []types.Market{
+		{Exchange: "binance", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
+		{Exchange: "binance", Symbol: "ETHBTC", Base: "ETH", Quote: "BTC"},
+		{Exchange: "binance", Symbol: "ETHUSDT", Base: "ETH", Quote: "USDT"},
+	}
+
+	triangle := types.Triangle{
+		MarketIds: [3]int{0, 1, 2},
+		Dirs:      [3]int8{1, -1, -1},
+		QuoteCcy:  "USDT",
+	}
+
+	t.Run("Zero quantity levels", func(t *testing.T) {
+		orderBooks := map[string]types.OrderBook{
+			"BTCUSDT": {Asks: []types.Level{{Price: 50000.0, Qty: 0}}, Bids: []types.Level{{Price: 49900.0, Qty: 0}}},
+			"ETHBTC":  {Asks: []types.Level{{Price: 0.03, Qty: 0}}, Bids: []types.Level{{Price: 0.029, Qty: 0}}},
+			"ETHUSDT": {Asks: []types.Level{{Price: 1500.0, Qty: 0}}, Bids: []types.Level{{Price: 1490.0, Qty: 0}}},
+		}
+
+		obBySymbol := func(symbol string) (types.OrderBook, bool) {
+			ob, exists := orderBooks[symbol]
+			return ob, exists
+		}
+
+		feeBySymbol := func(symbol string) (types.Fee, bool) {
+			return types.Fee{TakerBp: 0.1, MakerBp: 0.05}, true
+		}
+
+		_, found := sim.EvaluateOrderBook(triangle, markets, obBySymbol, feeBySymbol, 1000.0, 1)
+
+		if found {
+			t.Error("Should not find arbitrage with zero quantity levels")
+		}
+	})
+
+	t.Run("Insufficient depth", func(t *testing.T) {
+		orderBooks := map[string]types.OrderBook{
+			"BTCUSDT": {Asks: []types.Level{}, Bids: []types.Level{}}, // No levels
+			"ETHBTC":  {Asks: []types.Level{{Price: 0.03, Qty: 10.0}}, Bids: []types.Level{{Price: 0.029, Qty: 10.0}}},
+			"ETHUSDT": {Asks: []types.Level{{Price: 1500.0, Qty: 10.0}}, Bids: []types.Level{{Price: 1490.0, Qty: 10.0}}},
+		}
+
+		obBySymbol := func(symbol string) (types.OrderBook, bool) {
+			ob, exists := orderBooks[symbol]
+			return ob, exists
+		}
+
+		feeBySymbol := func(symbol string) (types.Fee, bool) {
+			return types.Fee{TakerBp: 0.1, MakerBp: 0.05}, true
+		}
+
+		_, found := sim.EvaluateOrderBook(triangle, markets, obBySymbol, feeBySymbol, 1000.0, 5)
+
+		if found {
+			t.Error("Should not find arbitrage with insufficient order book depth")
+		}
+	})
+}
+
+func TestTOBSimulatorEvaluateOrderBookIRTArbitrage(t *testing.T) {
+	sim := NewTOBSimulator(0.001, 5.0)
+
+	// Test IRT-based arbitrage as mentioned in the user's query
+	markets := []types.Market{
+		{Exchange: "nobitex", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
+		{Exchange: "nobitex", Symbol: "BTCIRT", Base: "BTC", Quote: "IRT"},
+		{Exchange: "nobitex", Symbol: "USDTIRT", Base: "USDT", Quote: "IRT"},
+	}
+
+	triangle := types.Triangle{
+		MarketIds: [3]int{0, 1, 2},
+		Dirs:      [3]int8{1, -1, -1}, // Buy BTCUSDT, Sell BTCIRT, Sell USDTIRT
+		QuoteCcy:  "USDT",
+	}
+
+	// Create realistic IRT order books with high IRT values
+	orderBooks := map[string]types.OrderBook{
+		"BTCUSDT": {
+			Asks: []types.Level{
+				{Price: 45000.0, Qty: 0.1}, {Price: 45100.0, Qty: 0.2}, {Price: 45200.0, Qty: 0.15},
+			},
+			Bids: []types.Level{
+				{Price: 44900.0, Qty: 0.12}, {Price: 44800.0, Qty: 0.18}, {Price: 44700.0, Qty: 0.14},
+			},
+		},
+		"BTCIRT": {
+			Asks: []types.Level{
+				{Price: 2000000000.0, Qty: 0.05}, {Price: 2010000000.0, Qty: 0.08}, {Price: 2020000000.0, Qty: 0.06},
+			},
+			Bids: []types.Level{
+				{Price: 1990000000.0, Qty: 0.07}, {Price: 1980000000.0, Qty: 0.09}, {Price: 1970000000.0, Qty: 0.08},
+			},
+		},
+		"USDTIRT": {
+			Asks: []types.Level{
+				{Price: 400000.0, Qty: 50.0}, {Price: 401000.0, Qty: 75.0}, {Price: 402000.0, Qty: 60.0},
+			},
+			Bids: []types.Level{
+				{Price: 399000.0, Qty: 55.0}, {Price: 398000.0, Qty: 80.0}, {Price: 397000.0, Qty: 65.0},
+			},
+		},
+	}
+
+	obBySymbol := func(symbol string) (types.OrderBook, bool) {
+		ob, exists := orderBooks[symbol]
+		return ob, exists
+	}
+
+		// Use IRT-specific fees from config
+		feeBySymbol := func(symbol string) (types.Fee, bool) {
+			if symbol == "BTCIRT" || symbol == "USDTIRT" {
+				return types.Fee{TakerBp: 25.0, MakerBp: 15.0}, true // NOBITEX IRT fees from config
+			}
+			return types.Fee{TakerBp: 8.0, MakerBp: 4.0}, true // NOBITEX USDT fees from config
+		}
+
+	targetQuote := 1000.0
+	maxDepth := 3
+
+	plan, found := sim.EvaluateOrderBook(triangle, markets, obBySymbol, feeBySymbol, targetQuote, maxDepth)
+
+	t.Logf("IRT Arbitrage found: %v, profit: %f", found, plan.ExpectedProfitQuote)
+
+	if found {
+		if plan.ExpectedProfitQuote <= 0 {
+			t.Errorf("Found IRT arbitrage but profit is not positive: %f", plan.ExpectedProfitQuote)
+		}
+
+		// Verify the arbitrage involves IRT as intermediate currency
+		hasIRT := false
+		for _, leg := range plan.Legs {
+			if leg.Market == "BTCIRT" || leg.Market == "USDTIRT" {
+				hasIRT = true
+				break
+			}
+		}
+
+		if !hasIRT {
+			t.Error("Expected IRT arbitrage to involve IRT markets")
+		}
+
+		t.Logf("IRT Arbitrage legs:")
+		for i, leg := range plan.Legs {
+			t.Logf("  Leg %d: %s %s %.6f @ %.2f", i+1, leg.Side, leg.Market, leg.Qty, leg.LimitPrice)
+		}
+	}
+}
+
+// Benchmark for EvaluateOrderBook
+func BenchmarkTOBSimulatorEvaluateOrderBook(b *testing.B) {
+	sim := NewTOBSimulator(0.001, 5.0)
+
+	markets := []types.Market{
+		{Exchange: "binance", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
+		{Exchange: "binance", Symbol: "ETHBTC", Base: "ETH", Quote: "BTC"},
+		{Exchange: "binance", Symbol: "ETHUSDT", Base: "ETH", Quote: "USDT"},
+	}
+
+	triangle := types.Triangle{
+		MarketIds: [3]int{0, 1, 2},
+		Dirs:      [3]int8{1, -1, -1},
+		QuoteCcy:  "USDT",
+	}
+
+	orderBooks := map[string]types.OrderBook{
+		"BTCUSDT": {
+			Asks: []types.Level{{Price: 50000.0, Qty: 2.0}, {Price: 50010.0, Qty: 1.5}, {Price: 50020.0, Qty: 3.0}},
+			Bids: []types.Level{{Price: 49990.0, Qty: 2.1}, {Price: 49980.0, Qty: 1.8}, {Price: 49970.0, Qty: 2.5}},
+		},
+		"ETHBTC": {
+			Asks: []types.Level{{Price: 0.0300, Qty: 50.0}, {Price: 0.0301, Qty: 45.0}, {Price: 0.0302, Qty: 55.0}},
+			Bids: []types.Level{{Price: 0.0299, Qty: 52.0}, {Price: 0.0298, Qty: 48.0}, {Price: 0.0297, Qty: 58.0}},
+		},
+		"ETHUSDT": {
+			Asks: []types.Level{{Price: 1490.0, Qty: 10.0}, {Price: 1491.0, Qty: 8.0}, {Price: 1492.0, Qty: 12.0}},
+			Bids: []types.Level{{Price: 1489.0, Qty: 9.0}, {Price: 1488.0, Qty: 11.0}, {Price: 1487.0, Qty: 13.0}},
+		},
+	}
+
+	obBySymbol := func(symbol string) (types.OrderBook, bool) {
+		ob, exists := orderBooks[symbol]
+		return ob, exists
+	}
+
+	feeBySymbol := func(symbol string) (types.Fee, bool) {
+		return types.Fee{TakerBp: 0.1, MakerBp: 0.05}, true
+	}
+
+	targetQuote := 1000.0
+	maxDepth := 3
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		sim.EvaluateOrderBook(triangle, markets, obBySymbol, feeBySymbol, targetQuote, maxDepth)
+	}
+}
+
 func BenchmarkIsFinite(b *testing.B) {
 	values := []float64{1.5, 0.0, -2.5, math.Inf(1), math.Inf(-1), math.NaN()}
 
