@@ -1,0 +1,6 @@
+.env
+.git/
+.codegraph/
+scripts/test_env/
+pygen/
+.VSCodeCounter/
