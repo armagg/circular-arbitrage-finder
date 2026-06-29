@@ -20,6 +20,16 @@ fees:
       IRT:
         taker: 20.0
         maker: 10.0
+    NOBITEX:
+      IRT:
+        taker: 25.0
+        maker: 15.0
+      USDT:
+        taker: 8.0
+        maker: 4.0
+      BTC:
+        taker: 6.0
+        maker: 3.0
 
 strategy:
   min_profit_edge: 1.0001 # minimum multiplicative edge, e.g., 1.0001 = 0.01% profit
