@@ -1,11 +1,21 @@
 package profit
 
 import (
+	"fmt"
 	"math"
 	"strings"
+	"time"
 
 	"github.com/armagg/circular-arbitrage-finder/pkg/types"
 )
+
+// newPlanID builds a traceable id like "NOBITEX-BTCIRT-1751900000123456".
+// Was hardcoded "" -- the executor logs and rate-tracks by plan_id, so an
+// empty id made every downstream log line ambiguous.
+func newPlanID(exchange, firstSymbol string) string {
+	return fmt.Sprintf("%s-%s-%d", exchange, firstSymbol,
+		time.Now().UnixMicro())
+}
 
 
 type Simulator interface {
@@ -102,7 +112,7 @@ func (s *TOBSimulator) EvaluateTOB(t types.Triangle, markets []types.Market, tob
 		QuoteCurrency:       markets[t.MarketIds[0]].Quote,
 		ValidMs:             250,
 		MaxSlippageBp:       s.SlippageBp,
-		PlanID:              "",
+		PlanID:              newPlanID(markets[t.MarketIds[0]].Exchange, markets[t.MarketIds[0]].Symbol),
 	}
 	return plan, true
 }
@@ -285,7 +295,7 @@ func (s *TOBSimulator) simulateMultiLevelExecution(t types.Triangle, markets []t
 		QuoteCurrency:       markets[t.MarketIds[0]].Quote,
 		ValidMs:             250,
 		MaxSlippageBp:       s.SlippageBp,
-		PlanID:              "",
+		PlanID:              newPlanID(markets[t.MarketIds[0]].Exchange, markets[t.MarketIds[0]].Symbol),
 	}
 
 	return rate, plan

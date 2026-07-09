@@ -1,5 +1,15 @@
-scripts/
+# Generated protobuf stubs (scripts regenerate them via grpc_tools on
+# demand -- see scripts/market_data_feeder.py ensure_python_stubs).
 pygen/
+
+# Build artifacts
+bin/
+./main
+*.exe
+*.out
+*.bin
+*.so
+*.dylib
 
 # Secrets and virtualenvs
 .env
@@ -11,11 +21,7 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-./main
 
-*.exe
-*.out
-*.bin
-*.so
-*.dylib
-
+# OS/tooling noise
+.DS_Store
+.codegraph/
