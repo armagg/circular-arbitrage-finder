@@ -25,3 +25,5 @@ __pycache__/
 # OS/tooling noise
 .DS_Store
 .codegraph/
+.cursor/
+.vscode/
