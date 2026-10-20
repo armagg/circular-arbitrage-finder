@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""
-Strategy Logger - Python Integration Test Server
-
-This script acts as an executor server that receives arbitrage strategies
-from the Go arbitrage finder service and logs them in a structured format.
-It provides a complete integration test for the arbitrage detection pipeline.
-"""
+"""Mock executor server: receives strategies from the Go finder and logs them."""
 
 import os
 import sys

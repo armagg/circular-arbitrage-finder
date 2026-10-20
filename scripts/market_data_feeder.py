@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""
-Market Data Feeder - Python Integration Test Client
-
-This script feeds realistic market data to the Go arbitrage finder service
-using the same protobuf definitions. It simulates real market conditions
-with varying prices, volumes, and update frequencies.
-"""
+"""Simulated market-data feeder: streams synthetic orderbooks to the Go finder."""
 
 import os
 import sys

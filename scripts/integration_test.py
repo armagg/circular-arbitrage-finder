@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
-"""
-Integration Test - Complete Arbitrage Detection Pipeline
-
-This script demonstrates the complete integration between:
-1. Python Market Data Feeder -> Go Arbitrage Finder -> Python Strategy Logger
-
-It tests the real functionality by feeding market data and logging detected strategies.
-"""
+"""End-to-end integration test: Python feeder -> Go finder -> Python strategy logger."""
 
 import os
 import sys
