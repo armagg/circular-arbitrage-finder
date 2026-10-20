@@ -53,24 +53,20 @@ func TestIsFinite(t *testing.T) {
 }
 
 func TestTOBSimulatorEvaluateTOB(t *testing.T) {
-	sim := NewTOBSimulator(0.0001, 0.1) // Lower thresholds for testing
+	sim := NewTOBSimulator(0.0001, 0.1)
 
-	// Create test markets
 	markets := []types.Market{
 		{Exchange: "binance", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
 		{Exchange: "binance", Symbol: "ETHBTC", Base: "ETH", Quote: "BTC"},
 		{Exchange: "binance", Symbol: "ETHUSDT", Base: "ETH", Quote: "USDT"},
 	}
 
-	// Create test triangle
 	triangle := types.Triangle{
 		MarketIds: [3]int{0, 1, 2},
 		Dirs:      [3]int8{1, -1, -1},
 		QuoteCcy:  "USDT",
 	}
 
-	// Create mock functions with prices that should create arbitrage
-	// Use prices that create a clear arbitrage opportunity
 	tobBySymbol := func(symbol string) (types.TopOfBook, bool) {
 		switch symbol {
 		case "BTCUSDT":
@@ -92,8 +88,6 @@ func TestTOBSimulatorEvaluateTOB(t *testing.T) {
 
 	plan, found := sim.EvaluateTOB(triangle, markets, tobBySymbol, feeBySymbol, targetQuote)
 
-	// The function should execute without panicking
-	// Arbitrage detection may or may not find profit depending on exact calculations
 	t.Logf("Arbitrage found: %v, profit: %f", found, plan.ExpectedProfitQuote)
 
 	if found {
@@ -112,7 +106,7 @@ func TestTOBSimulatorEvaluateTOB(t *testing.T) {
 }
 
 func TestTOBSimulatorEvaluateTOBNoProfit(t *testing.T) {
-	sim := NewTOBSimulator(0.01, 5.0) // High minimum edge
+	sim := NewTOBSimulator(0.01, 5.0)
 
 	markets := []types.Market{
 		{Exchange: "binance", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
@@ -126,7 +120,6 @@ func TestTOBSimulatorEvaluateTOBNoProfit(t *testing.T) {
 		QuoteCcy:  "USDT",
 	}
 
-	// Prices that result in no profit
 	tobBySymbol := func(symbol string) (types.TopOfBook, bool) {
 		switch symbol {
 		case "BTCUSDT":
@@ -166,10 +159,9 @@ func TestTOBSimulatorEvaluateTOBMissingData(t *testing.T) {
 		QuoteCcy:  "USDT",
 	}
 
-	// Mock function that returns missing data
 	tobBySymbol := func(symbol string) (types.TopOfBook, bool) {
 		if symbol == "BTCUSDT" {
-			return types.TopOfBook{BidPx: 0, AskPx: 0}, true // Invalid prices
+			return types.TopOfBook{BidPx: 0, AskPx: 0}, true
 		}
 		return types.TopOfBook{}, false
 	}
@@ -188,7 +180,7 @@ func TestTOBSimulatorEvaluateTOBMissingData(t *testing.T) {
 }
 
 func TestTOBSimulatorComplexArbitrage(t *testing.T) {
-	sim := NewTOBSimulator(0.0001, 0.1) // Lower thresholds for testing
+	sim := NewTOBSimulator(0.0001, 0.1)
 
 	markets := []types.Market{
 		{Exchange: "binance", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
@@ -202,7 +194,6 @@ func TestTOBSimulatorComplexArbitrage(t *testing.T) {
 		QuoteCcy:  "USDT",
 	}
 
-	// Realistic prices that should create arbitrage opportunity
 	tobBySymbol := func(symbol string) (types.TopOfBook, bool) {
 		switch symbol {
 		case "BTCUSDT":
@@ -224,7 +215,6 @@ func TestTOBSimulatorComplexArbitrage(t *testing.T) {
 
 	plan, found := sim.EvaluateTOB(triangle, markets, tobBySymbol, feeBySymbol, targetQuote)
 
-	// The function should execute without panicking
 	t.Logf("Complex arbitrage found: %v, profit: %f", found, plan.ExpectedProfitQuote)
 
 	if found {
@@ -232,7 +222,6 @@ func TestTOBSimulatorComplexArbitrage(t *testing.T) {
 			t.Errorf("Found arbitrage but profit is not positive: %f", plan.ExpectedProfitQuote)
 		}
 
-		// Verify plan structure
 		if plan.Exchange != "binance" {
 			t.Errorf("Expected exchange binance, got %s", plan.Exchange)
 		}
@@ -241,11 +230,10 @@ func TestTOBSimulatorComplexArbitrage(t *testing.T) {
 			t.Errorf("Expected valid ms 250, got %d", plan.ValidMs)
 		}
 
-		if plan.MaxSlippageBp != 0.1 { // Updated to match the simulator setting
+		if plan.MaxSlippageBp != 0.1 {
 			t.Errorf("Expected max slippage 0.1, got %f", plan.MaxSlippageBp)
 		}
 
-		// Verify legs
 		expectedSides := [3]types.Side{types.SideBuy, types.SideSell, types.SideSell}
 		for i, leg := range plan.Legs {
 			if leg.Side != expectedSides[i] {
@@ -270,7 +258,6 @@ func TestTOBSimulatorTriangleDirections(t *testing.T) {
 		{Exchange: "binance", Symbol: "ETHUSDT", Base: "ETH", Quote: "USDT"},
 	}
 
-	// Test different triangle directions
 	testCases := []struct {
 		name       string
 		directions [3]int8
@@ -307,8 +294,6 @@ func TestTOBSimulatorTriangleDirections(t *testing.T) {
 
 			_, found := sim.EvaluateTOB(triangle, markets, tobBySymbol, feeBySymbol, 1000.0)
 
-			// We don't assert on 'found' since different directions may or may not be profitable
-			// The important thing is that the function doesn't panic and returns a valid result
 			t.Logf("Triangle with directions %v: profitable = %v", tc.directions, found)
 		})
 	}
@@ -317,7 +302,6 @@ func TestTOBSimulatorTriangleDirections(t *testing.T) {
 func TestTOBSimulatorEdgeCases(t *testing.T) {
 	sim := NewTOBSimulator(0.001, 5.0)
 
-	// Create 3 markets for proper triangle testing
 	markets := []types.Market{
 		{Exchange: "binance", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
 		{Exchange: "binance", Symbol: "ETHBTC", Base: "ETH", Quote: "BTC"},
@@ -377,13 +361,12 @@ func TestTOBSimulatorEdgeCases(t *testing.T) {
 	})
 
 	t.Run("Infinite results", func(t *testing.T) {
-		// This tests the isFinite check
-		simHighSlippage := NewTOBSimulator(0.001, 100.0) // Very high slippage
+		simHighSlippage := NewTOBSimulator(0.001, 100.0)
 
 		tobBySymbol := func(symbol string) (types.TopOfBook, bool) {
 			switch symbol {
 			case "BTCUSDT":
-				return types.TopOfBook{BidPx: 1e-100, AskPx: 1e100}, true // Extreme values
+				return types.TopOfBook{BidPx: 1e-100, AskPx: 1e100}, true
 			case "ETHBTC":
 				return types.TopOfBook{BidPx: 1e-100, AskPx: 1e100}, true
 			case "ETHUSDT":
@@ -397,12 +380,10 @@ func TestTOBSimulatorEdgeCases(t *testing.T) {
 		}
 
 		_, found := simHighSlippage.EvaluateTOB(triangle, markets, tobBySymbol, feeBySymbol, 1000.0)
-		// The function should handle infinite results gracefully
 		t.Logf("Infinite result test: profitable = %v", found)
 	})
 }
 
-// Benchmark tests
 func BenchmarkTOBSimulatorEvaluateTOB(b *testing.B) {
 	sim := NewTOBSimulator(0.001, 5.0)
 
@@ -443,9 +424,8 @@ func BenchmarkTOBSimulatorEvaluateTOB(b *testing.B) {
 	}
 }
 
-// Tests for EvaluateOrderBook function
 func TestTOBSimulatorEvaluateOrderBook(t *testing.T) {
-	sim := NewTOBSimulator(0.0001, 0.1) // Lower thresholds for testing
+	sim := NewTOBSimulator(0.0001, 0.1)
 
 	markets := []types.Market{
 		{Exchange: "binance", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
@@ -459,7 +439,6 @@ func TestTOBSimulatorEvaluateOrderBook(t *testing.T) {
 		QuoteCcy:  "USDT",
 	}
 
-	// Create realistic order book with multiple levels
 	orderBooks := map[string]types.OrderBook{
 		"BTCUSDT": {
 			Bids: []types.Level{
@@ -526,7 +505,6 @@ func TestTOBSimulatorEvaluateOrderBook(t *testing.T) {
 			t.Errorf("Expected exchange binance, got %s", plan.Exchange)
 		}
 
-		// Verify legs have reasonable values
 		for i, leg := range plan.Legs {
 			if leg.Qty <= 0 {
 				t.Errorf("Expected positive quantity for leg %d, got %f", i, leg.Qty)
@@ -556,7 +534,6 @@ func TestTOBSimulatorEvaluateOrderBookDepth(t *testing.T) {
 		QuoteCcy:  "USDT",
 	}
 
-	// Create order books with 5 levels each
 	orderBooks := map[string]types.OrderBook{
 		"BTCUSDT": {
 			Asks: []types.Level{
@@ -601,7 +578,6 @@ func TestTOBSimulatorEvaluateOrderBookDepth(t *testing.T) {
 
 	targetQuote := 1000.0
 
-	// Test different depths
 	testCases := []struct {
 		name     string
 		maxDepth int
@@ -615,7 +591,6 @@ func TestTOBSimulatorEvaluateOrderBookDepth(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			plan, found := sim.EvaluateOrderBook(triangle, markets, obBySymbol, feeBySymbol, targetQuote, tc.maxDepth)
 
-			// The function should execute without panicking
 			t.Logf("%s: Arbitrage found: %v, profit: %f", tc.name, found, plan.ExpectedProfitQuote)
 
 			if found {
@@ -646,11 +621,10 @@ func TestTOBSimulatorEvaluateOrderBookMissingData(t *testing.T) {
 		QuoteCcy:  "USDT",
 	}
 
-	// Mock function that returns missing data for some symbols
 	obBySymbol := func(symbol string) (types.OrderBook, bool) {
 		switch symbol {
 		case "BTCUSDT":
-			return types.OrderBook{}, true // Empty order book
+			return types.OrderBook{}, true
 		case "ETHBTC":
 			return types.OrderBook{
 				Asks: []types.Level{{Price: 0.03, Qty: 10.0}},
@@ -720,7 +694,7 @@ func TestTOBSimulatorEvaluateOrderBookEdgeCases(t *testing.T) {
 
 	t.Run("Insufficient depth", func(t *testing.T) {
 		orderBooks := map[string]types.OrderBook{
-			"BTCUSDT": {Asks: []types.Level{}, Bids: []types.Level{}}, // No levels
+			"BTCUSDT": {Asks: []types.Level{}, Bids: []types.Level{}},
 			"ETHBTC":  {Asks: []types.Level{{Price: 0.03, Qty: 10.0}}, Bids: []types.Level{{Price: 0.029, Qty: 10.0}}},
 			"ETHUSDT": {Asks: []types.Level{{Price: 1500.0, Qty: 10.0}}, Bids: []types.Level{{Price: 1490.0, Qty: 10.0}}},
 		}
@@ -745,7 +719,6 @@ func TestTOBSimulatorEvaluateOrderBookEdgeCases(t *testing.T) {
 func TestTOBSimulatorEvaluateOrderBookIRTArbitrage(t *testing.T) {
 	sim := NewTOBSimulator(0.001, 5.0)
 
-	// Test IRT-based arbitrage as mentioned in the user's query
 	markets := []types.Market{
 		{Exchange: "nobitex", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
 		{Exchange: "nobitex", Symbol: "BTCIRT", Base: "BTC", Quote: "IRT"},
@@ -754,11 +727,10 @@ func TestTOBSimulatorEvaluateOrderBookIRTArbitrage(t *testing.T) {
 
 	triangle := types.Triangle{
 		MarketIds: [3]int{0, 1, 2},
-		Dirs:      [3]int8{1, -1, -1}, // Buy BTCUSDT, Sell BTCIRT, Sell USDTIRT
+		Dirs:      [3]int8{1, -1, -1},
 		QuoteCcy:  "USDT",
 	}
 
-	// Create realistic IRT order books with high IRT values
 	orderBooks := map[string]types.OrderBook{
 		"BTCUSDT": {
 			Asks: []types.Level{
@@ -791,12 +763,11 @@ func TestTOBSimulatorEvaluateOrderBookIRTArbitrage(t *testing.T) {
 		return ob, exists
 	}
 
-		// Use IRT-specific fees from config
 		feeBySymbol := func(symbol string) (types.Fee, bool) {
 			if symbol == "BTCIRT" || symbol == "USDTIRT" {
-				return types.Fee{TakerBp: 25.0, MakerBp: 15.0}, true // NOBITEX IRT fees from config
+				return types.Fee{TakerBp: 25.0, MakerBp: 15.0}, true
 			}
-			return types.Fee{TakerBp: 8.0, MakerBp: 4.0}, true // NOBITEX USDT fees from config
+			return types.Fee{TakerBp: 8.0, MakerBp: 4.0}, true
 		}
 
 	targetQuote := 1000.0
@@ -811,7 +782,6 @@ func TestTOBSimulatorEvaluateOrderBookIRTArbitrage(t *testing.T) {
 			t.Errorf("Found IRT arbitrage but profit is not positive: %f", plan.ExpectedProfitQuote)
 		}
 
-		// Verify the arbitrage involves IRT as intermediate currency
 		hasIRT := false
 		for _, leg := range plan.Legs {
 			if leg.Market == "BTCIRT" || leg.Market == "USDTIRT" {
@@ -831,7 +801,6 @@ func TestTOBSimulatorEvaluateOrderBookIRTArbitrage(t *testing.T) {
 	}
 }
 
-// Benchmark for EvaluateOrderBook
 func BenchmarkTOBSimulatorEvaluateOrderBook(b *testing.B) {
 	sim := NewTOBSimulator(0.001, 5.0)
 

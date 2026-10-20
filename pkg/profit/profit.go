@@ -9,9 +9,6 @@ import (
 	"github.com/armagg/circular-arbitrage-finder/pkg/types"
 )
 
-// newPlanID builds a traceable id like "NOBITEX-BTCIRT-1751900000123456".
-// Was hardcoded "" -- the executor logs and rate-tracks by plan_id, so an
-// empty id made every downstream log line ambiguous.
 func newPlanID(exchange, firstSymbol string) string {
 	return fmt.Sprintf("%s-%s-%d", exchange, firstSymbol,
 		time.Now().UnixMicro())
@@ -53,8 +50,6 @@ func (s *TOBSimulator) EvaluateTOB(t types.Triangle, markets []types.Market, tob
 	}
 
 
-
-
 	rate := 1.0
 	for i := 0; i < 3; i++ {
 		mid := t.MarketIds[i]
@@ -62,7 +57,6 @@ func (s *TOBSimulator) EvaluateTOB(t types.Triangle, markets []types.Market, tob
 		if t.Dirs[i] > 0 {
 			px := tob[i].AskPx * (1.0 + s.SlippageBp/10000.0)
 			feeMul := 1.0 - fee[i].TakerBp/10000.0
-
 
 
 			rate *= (1.0 / px) * feeMul
@@ -78,7 +72,6 @@ func (s *TOBSimulator) EvaluateTOB(t types.Triangle, markets []types.Market, tob
 	if rate <= s.MinEdge {
 		return types.Plan{}, false
 	}
-
 
 
 	legs := [3]types.TriangleLeg{}
@@ -117,13 +110,11 @@ func (s *TOBSimulator) EvaluateTOB(t types.Triangle, markets []types.Market, tob
 	return plan, true
 }
 
-// EvaluateOrderBook calculates arbitrage using full order book depth for maximum profit
 func (s *TOBSimulator) EvaluateOrderBook(t types.Triangle, markets []types.Market, obBySymbol func(symbol string) (types.OrderBook, bool), feesBySymbol func(symbol string) (types.Fee, bool), targetQuote float64, maxDepth int) (types.Plan, bool) {
 	orderBooks := make([]types.OrderBook, 3)
 	fees := make([]types.Fee, 3)
 	symbols := make([]string, 3)
 
-	// Get order books and fees for each market
 	for i, mid := range t.MarketIds {
 		m := markets[mid]
 		symbols[i] = strings.ToUpper(m.Symbol)
@@ -141,7 +132,6 @@ func (s *TOBSimulator) EvaluateOrderBook(t types.Triangle, markets []types.Marke
 		fees[i] = fee
 	}
 
-	// Calculate maximum profit using order book depth
 	bestRate, bestPlan := s.calculateOptimalPath(t, markets, orderBooks, fees, targetQuote, maxDepth)
 
 	if bestRate <= s.MinEdge {
@@ -151,12 +141,10 @@ func (s *TOBSimulator) EvaluateOrderBook(t types.Triangle, markets []types.Marke
 	return bestPlan, true
 }
 
-// calculateOptimalPath finds the optimal execution path across order book depth
 func (s *TOBSimulator) calculateOptimalPath(t types.Triangle, markets []types.Market, orderBooks []types.OrderBook, fees []types.Fee, targetQuote float64, maxDepth int) (float64, types.Plan) {
 	bestRate := 0.0
 	var bestPlan types.Plan
 
-	// For each leg, try different execution strategies
 	for leg0Levels := 1; leg0Levels <= maxDepth; leg0Levels++ {
 		for leg1Levels := 1; leg1Levels <= maxDepth; leg1Levels++ {
 			for leg2Levels := 1; leg2Levels <= maxDepth; leg2Levels++ {
@@ -174,28 +162,23 @@ func (s *TOBSimulator) calculateOptimalPath(t types.Triangle, markets []types.Ma
 	return bestRate, bestPlan
 }
 
-// simulateMultiLevelExecution simulates trading across multiple order book levels
 func (s *TOBSimulator) simulateMultiLevelExecution(t types.Triangle, markets []types.Market, orderBooks []types.OrderBook, fees []types.Fee, targetQuote float64, levels0, levels1, levels2 int) (float64, types.Plan) {
 	remainingValue := targetQuote
 	rate := 1.0
 	legs := [3]types.TriangleLeg{}
 
-	// Process each leg
 	for i := 0; i < 3; i++ {
 		market := markets[t.MarketIds[i]]
-		fee := fees[i] // Use the fee from the config
+		fee := fees[i]
 
 		var levels []types.Level
 
 		if t.Dirs[i] > 0 {
-			// Buy order - use ask side
 			levels = orderBooks[i].Asks
 		} else {
-			// Sell order - use bid side
 			levels = orderBooks[i].Bids
 		}
 
-		// Limit to requested depth
 		maxLevels := len(levels)
 		switch i {
 		case 0:
@@ -211,7 +194,6 @@ func (s *TOBSimulator) simulateMultiLevelExecution(t types.Triangle, markets []t
 		}
 		levels = levels[:maxLevels]
 
-		// Calculate execution price by working through order book levels
 		executedValue := 0.0
 		executedQty := 0.0
 		remainingToExecute := remainingValue
@@ -224,26 +206,21 @@ func (s *TOBSimulator) simulateMultiLevelExecution(t types.Triangle, markets []t
 			price := level.Price
 			availableQty := level.Qty
 
-			// Calculate how much we can execute at this level
 			if t.Dirs[i] > 0 {
-				// Buying - we want to buy 'remainingToExecute' worth of base currency
 				maxValueAtLevel := availableQty * price
 				executeValue := math.Min(remainingToExecute, maxValueAtLevel)
 				executeQty := executeValue / price
 
-				// Apply slippage and fees from config
 				effectiveExecuteValue := executeValue * (1.0 + s.SlippageBp/10000.0) * (1.0 + fee.TakerBp/10000.0)
 
 				executedValue += effectiveExecuteValue
 				executedQty += executeQty
 				remainingToExecute -= executeValue
 			} else {
-				// Selling - we have 'remainingToExecute' units to sell
 				maxQtyAtLevel := availableQty
 				executeQty := math.Min(remainingToExecute, maxQtyAtLevel)
 				executeValue := executeQty * price
 
-				// Apply slippage and fees from config
 				effectiveExecuteValue := executeValue * (1.0 - s.SlippageBp/10000.0) * (1.0 - fee.TakerBp/10000.0)
 
 				executedValue += effectiveExecuteValue
@@ -256,11 +233,9 @@ func (s *TOBSimulator) simulateMultiLevelExecution(t types.Triangle, markets []t
 			return 0.0, types.Plan{}
 		}
 
-		// Calculate effective price
 		effectivePrice := executedValue / executedQty
 
 		if t.Dirs[i] > 0 {
-			// Buy: rate *= (1/price)
 			rate *= (1.0 / effectivePrice)
 			legs[i] = types.TriangleLeg{
 				Market:     market.Symbol,
@@ -270,7 +245,6 @@ func (s *TOBSimulator) simulateMultiLevelExecution(t types.Triangle, markets []t
 			}
 			remainingValue = executedQty
 		} else {
-			// Sell: rate *= price
 			rate *= effectivePrice
 			legs[i] = types.TriangleLeg{
 				Market:     market.Symbol,

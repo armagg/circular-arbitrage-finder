@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""
-Strategy Logger - Python Integration Test Server
-
-This script acts as an executor server that receives arbitrage strategies
-from the Go arbitrage finder service and logs them in a structured format.
-It provides a complete integration test for the arbitrage detection pipeline.
-"""
+"""Mock executor server: receives strategies from the Go finder and logs them."""
 
 import os
 import sys
@@ -21,7 +15,6 @@ import shutil
 import grpc
 from dotenv import load_dotenv
 
-# Setup paths
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(THIS_DIR, ".."))
 PROTO_DIR = os.path.join(ROOT, "proto")
@@ -30,7 +23,6 @@ GEN_DIR = os.path.join(ROOT, "pygen")
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -68,7 +60,6 @@ def ensure_python_stubs():
             logger.error("protoc python generation failed")
             sys.exit(1)
 
-        # Move generated files to correct location
         src_pb = os.path.join(GEN_DIR, "executor_pb2.py")
         src_grpc = os.path.join(GEN_DIR, "executor_pb2_grpc.py")
         dst_dir = os.path.join(GEN_DIR, "exec")
@@ -78,7 +69,6 @@ def ensure_python_stubs():
         if os.path.exists(src_grpc):
             shutil.move(src_grpc, os.path.join(dst_dir, "executor_pb2_grpc.py"))
 
-        # Create __init__.py files
         for p in [GEN_DIR, dst_dir]:
             initp = os.path.join(p, "__init__.py")
             if not os.path.exists(initp):
@@ -102,7 +92,6 @@ class StrategyLogger:
         self.logger = logger
 
         if self.log_file:
-            # Clear the log file at startup
             with open(self.log_file, 'w') as f:
                 f.write(f"# Arbitrage Strategy Log - Started at {datetime.now().isoformat()}\n")
                 f.write("# Format: timestamp, plan_id, exchange, profit, legs...\n\n")
@@ -116,7 +105,6 @@ class StrategyLogger:
         quote_currency = strategy_data.get('quote_ccy', 'unknown')
         legs = strategy_data.get('legs', [])
 
-        # Console logging
         if self.json_output:
             log_entry = {
                 'timestamp': timestamp,
@@ -146,7 +134,6 @@ class StrategyLogger:
             print(log_msg)
             self.logger.info(log_msg)
 
-        # File logging
         if self.log_file:
             with open(self.log_file, 'a') as f:
                 if self.json_output:
@@ -161,7 +148,6 @@ class StrategyLogger:
                         f.write(f",{leg['market']},{leg['side']},{leg['qty']:.8f},{leg['limit_price']:.8f}")
                     f.write('\n')
 
-        # Store for analysis
         strategy_data['timestamp'] = timestamp
         self.strategies_received.append(strategy_data)
 
@@ -201,7 +187,6 @@ class StrategyLogger:
             print(f"Exchanges: {', '.join(stats['exchanges'])}")
             print(f"Time span: {stats['time_span']['first']} to {stats['time_span']['last']}")
 
-            # Group by exchange
             exchange_stats = {}
             for strategy in self.strategies_received:
                 exchange = strategy.get('exchange', 'unknown')
@@ -226,7 +211,6 @@ class ExecutorServicer:
     def ProposePlan(self, request, context):
         """Handle incoming strategy proposals."""
         try:
-            # Convert protobuf message to dictionary
             strategy_data = {
                 'plan_id': request.plan_id,
                 'exchange': request.exchange,
@@ -237,7 +221,6 @@ class ExecutorServicer:
                 'legs': []
             }
 
-            # Convert legs
             for leg in request.legs:
                 strategy_data['legs'].append({
                     'market': leg.market,
@@ -246,14 +229,11 @@ class ExecutorServicer:
                     'limit_price': leg.limit_price,
                 })
 
-            # Log the strategy
             self.strategy_logger.log_strategy(strategy_data)
 
-            # Accept the strategy
             response = {"accepted": True, "reason": "Strategy logged successfully"}
             self.logger.debug(f"Accepted strategy {request.plan_id}")
 
-            # Return protobuf response
             sys.path.insert(0, os.path.join(GEN_DIR, "exec"))
             import executor_pb2
             return executor_pb2.ProposeReply(accepted=True, reason="Strategy logged successfully")
@@ -282,26 +262,20 @@ def main():
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    # Load environment variables
     load_dotenv(os.path.join(ROOT, ".env"))
 
-    # Ensure protobuf stubs exist
     ensure_python_stubs()
 
-    # Create strategy logger
     logger_instance = StrategyLogger(args.log_file, args.json_output)
 
-    # Create gRPC server
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=4))
 
     sys.path.insert(0, os.path.join(GEN_DIR, "exec"))
     import executor_pb2_grpc
 
-    # Add service
     servicer = ExecutorServicer(logger_instance)
     executor_pb2_grpc.add_ExecutorServicer_to_server(servicer, server)
 
-    # Start server
     server.add_insecure_port(args.address)
     server.start()
 
@@ -317,7 +291,6 @@ def main():
         while True:
             time.sleep(1)
 
-            # Print periodic summary
             if args.summary_interval > 0:
                 elapsed = time.time() - start_time
                 if elapsed >= args.summary_interval:
@@ -328,7 +301,6 @@ def main():
         logger.info("Stopping strategy logger...")
         server.stop(0)
 
-        # Print final summary
         logger_instance.print_summary()
 
         if args.log_file:

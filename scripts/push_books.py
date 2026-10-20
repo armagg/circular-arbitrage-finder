@@ -66,11 +66,6 @@ def main():
 
     def gen():
         seq = 1
-        # Original non-profitable prices:
-        # BTCUSDT: 60020/60030, ETHBTC: 0.06010/0.06012, ETHUSDT: 3610/3612
-        # Profitable cycle: USDT -> ETH -> BTC -> USDT
-        # (ETHBTC_bid * BTCUSDT_bid) / ETHUSDT_ask > 1 + fees
-        # We need ETHUSDT ask to be lower.
         yield marketdata_pb2.OrderBookDelta(
             market=marketdata_pb2.MarketId(exchange="BINANCE", symbol="BTCUSDT"),
             sequence=seq,

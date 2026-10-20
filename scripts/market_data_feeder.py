@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""
-Market Data Feeder - Python Integration Test Client
-
-This script feeds realistic market data to the Go arbitrage finder service
-using the same protobuf definitions. It simulates real market conditions
-with varying prices, volumes, and update frequencies.
-"""
+"""Simulated market-data feeder: streams synthetic orderbooks to the Go finder."""
 
 import os
 import sys
@@ -19,7 +13,6 @@ import shutil
 import grpc
 from dotenv import load_dotenv
 
-# Setup paths
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(THIS_DIR, ".."))
 PROTO_DIR = os.path.join(ROOT, "proto")
@@ -28,7 +21,6 @@ GEN_DIR = os.path.join(ROOT, "pygen")
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -66,7 +58,6 @@ def ensure_python_stubs():
             logger.error("protoc python generation failed")
             sys.exit(1)
 
-        # Move generated files to correct location
         src_pb = os.path.join(GEN_DIR, "marketdata_pb2.py")
         src_grpc = os.path.join(GEN_DIR, "marketdata_pb2_grpc.py")
         dst_dir = os.path.join(GEN_DIR, "md")
@@ -76,7 +67,6 @@ def ensure_python_stubs():
         if os.path.exists(src_grpc):
             shutil.move(src_grpc, os.path.join(dst_dir, "marketdata_pb2_grpc.py"))
 
-        # Create __init__.py files
         for p in [GEN_DIR, dst_dir]:
             initp = os.path.join(p, "__init__.py")
             if not os.path.exists(initp):
@@ -104,12 +94,12 @@ class MarketDataGenerator:
             "ADAETH": 0.0005,
         }
         self.volatility = {
-            "BTCUSDT": 0.002,  # 0.2% volatility
-            "ETHUSDT": 0.003,  # 0.3% volatility
-            "ETHBTC": 0.005,   # 0.5% volatility
-            "ADAUSDT": 0.008,  # 0.8% volatility
-            "ADABTC": 0.010,   # 1.0% volatility
-            "ADAETH": 0.012,   # 1.2% volatility
+            "BTCUSDT": 0.002,
+            "ETHUSDT": 0.003,
+            "ETHBTC": 0.005,
+            "ADAUSDT": 0.008,
+            "ADABTC": 0.010,
+            "ADAETH": 0.012,
         }
         self.current_prices = self.base_prices.copy()
         self.last_update = time.time()
@@ -119,22 +109,19 @@ class MarketDataGenerator:
         levels = []
         base_price = self.current_prices[symbol]
 
-        # Add some random walk to price
         price_change = random.gauss(0, self.volatility[symbol])
         base_price *= (1 + price_change)
         self.current_prices[symbol] = base_price
 
-        spread = self.volatility[symbol] * base_price * 0.001  # Small spread
+        spread = self.volatility[symbol] * base_price * 0.001
 
         for i in range(num_levels):
             if side == "bid":
-                # Bids are below base price
                 price = base_price - (spread * (i + 1))
-                qty = random.uniform(0.1, 5.0) * (1 / (i + 1))  # Decreasing volume
-            else:  # ask
-                # Asks are above base price
+                qty = random.uniform(0.1, 5.0) * (1 / (i + 1))
+            else:
                 price = base_price + (spread * (i + 1))
-                qty = random.uniform(0.1, 5.0) * (1 / (i + 1))  # Decreasing volume
+                qty = random.uniform(0.1, 5.0) * (1 / (i + 1))
 
             levels.append({"price": price, "qty": qty})
 
@@ -148,7 +135,6 @@ class MarketDataGenerator:
         bids = self.generate_realistic_levels(symbol, "bid")
         asks = self.generate_realistic_levels(symbol, "ask")
 
-        # Convert to protobuf format
         pb_bids = [marketdata_pb2.Level(price=b["price"], qty=b["qty"]) for b in bids]
         pb_asks = [marketdata_pb2.Level(price=a["price"], qty=a["qty"]) for a in asks]
 
@@ -166,10 +152,9 @@ class MarketDataGenerator:
 
     def get_arbitrage_opportunity(self) -> Dict[str, Dict]:
         """Generate a set of prices that create arbitrage opportunities."""
-        # Create cross-market arbitrage: BTC/USDT -> ETH/BTC -> ETH/USDT
         btc_usdt_price = 50000.0
         eth_btc_price = 0.06
-        eth_usdt_price = 2980.0  # Slightly lower than 3000 to create arbitrage
+        eth_usdt_price = 2980.0
 
         return {
             "BTCUSDT": {"bid": btc_usdt_price, "ask": btc_usdt_price + 10},
@@ -207,7 +192,7 @@ class MarketDataFeeder:
             delta = self.generator.create_orderbook_delta(symbol, is_snapshot=True)
             yield delta
             self.logger.info(f"Sent snapshot for {symbol}")
-            time.sleep(0.1)  # Small delay between symbols
+            time.sleep(0.1)
 
     def send_continuous_updates(self, stub, interval: float = 1.0):
         """Send continuous market data updates."""
@@ -227,7 +212,6 @@ class MarketDataFeeder:
         arb_prices = self.generator.get_arbitrage_opportunity()
 
         for symbol, prices in arb_prices.items():
-            # Create custom levels for arbitrage
             sys.path.insert(0, os.path.join(GEN_DIR, "md"))
             import marketdata_pb2
 
@@ -260,7 +244,7 @@ class MarketDataFeeder:
                 elif mode == "arbitrage":
                     yield from self.send_arbitrage_opportunity(stub)
                     yield from self.send_continuous_updates(stub, interval)
-                else:  # continuous
+                else:
                     yield from self.send_initial_snapshots(stub)
                     yield from self.send_continuous_updates(stub, interval)
 
@@ -296,17 +280,13 @@ def main():
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    # Load environment variables
     load_dotenv(os.path.join(ROOT, ".env"))
 
-    # Override with command line if provided
     if not args.server.startswith("127.0.0.1") and not args.server.startswith("localhost"):
         os.environ["INGRESS_ADDR"] = args.server
 
-    # Ensure protobuf stubs exist
     ensure_python_stubs()
 
-    # Create and run feeder
     feeder = MarketDataFeeder(args.server, args.symbols)
     feeder.run(args.mode, args.interval)
 

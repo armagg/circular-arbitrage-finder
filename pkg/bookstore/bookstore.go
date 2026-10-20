@@ -7,7 +7,6 @@ import (
 	"github.com/armagg/circular-arbitrage-finder/pkg/types"
 )
 
-// isSortedDescending checks if levels are already sorted by price descending (highest first)
 func isSortedDescending(levels []types.Level) bool {
 	for i := 1; i < len(levels); i++ {
 		if levels[i].Price > levels[i-1].Price {
@@ -17,7 +16,6 @@ func isSortedDescending(levels []types.Level) bool {
 	return true
 }
 
-// isSortedAscending checks if levels are already sorted by price ascending (lowest first)
 func isSortedAscending(levels []types.Level) bool {
 	for i := 1; i < len(levels); i++ {
 		if levels[i].Price < levels[i-1].Price {
@@ -27,7 +25,6 @@ func isSortedAscending(levels []types.Level) bool {
 	return true
 }
 
-// insertionSortDescending sorts small slices efficiently when nearly sorted
 func insertionSortDescending(levels []types.Level) {
 	for i := 1; i < len(levels); i++ {
 		key := levels[i]
@@ -40,7 +37,6 @@ func insertionSortDescending(levels []types.Level) {
 	}
 }
 
-// insertionSortAscending sorts small slices efficiently when nearly sorted
 func insertionSortAscending(levels []types.Level) {
 	for i := 1; i < len(levels); i++ {
 		key := levels[i]
@@ -98,14 +94,11 @@ func (s *OrderBookStore) Upsert(symbol string, bids []types.Level, asks []types.
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Optimize sorting: only sort if not already sorted, use efficient method for small/nearly sorted data
 	if len(bids) > 0 {
 		if !isSortedDescending(bids) {
 			if len(bids) <= 32 {
-				// Use insertion sort for small slices (very efficient when nearly sorted)
 				insertionSortDescending(bids)
 			} else {
-				// Use Go's optimized sort for larger slices
 				sort.Slice(bids, func(i, j int) bool { return bids[i].Price > bids[j].Price })
 			}
 		}
@@ -114,10 +107,8 @@ func (s *OrderBookStore) Upsert(symbol string, bids []types.Level, asks []types.
 	if len(asks) > 0 {
 		if !isSortedAscending(asks) {
 			if len(asks) <= 32 {
-				// Use insertion sort for small slices (very efficient when nearly sorted)
 				insertionSortAscending(asks)
 			} else {
-				// Use Go's optimized sort for larger slices
 				sort.Slice(asks, func(i, j int) bool { return asks[i].Price < asks[j].Price })
 			}
 		}

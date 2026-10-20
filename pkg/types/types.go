@@ -37,7 +37,7 @@ type TopOfBook struct {
 	AskPx float64
 	AskSz float64
 	Seq   uint64
-	TsNs  int64 //
+	TsNs  int64
 }
 
 type OrderBook struct {

@@ -48,7 +48,6 @@ func TestMarketRegistryUpsertMarket(t *testing.T) {
 
 	reg.UpsertMarket(market)
 
-	// Verify the market was stored
 	retrieved, exists := reg.GetMarket("BTCUSDT")
 	if !exists {
 		t.Error("Expected market to exist after upsert")
@@ -64,7 +63,6 @@ func TestMarketRegistryUpsertMarketUpdate(t *testing.T) {
 
 	symbol := "BTCUSDT"
 
-	// Insert initial market
 	market1 := types.Market{
 		Exchange: "binance",
 		Symbol:   symbol,
@@ -75,18 +73,16 @@ func TestMarketRegistryUpsertMarketUpdate(t *testing.T) {
 
 	reg.UpsertMarket(market1)
 
-	// Update the market
 	market2 := types.Market{
 		Exchange: "binance",
 		Symbol:   symbol,
 		Base:     "BTC",
 		Quote:    "USDT",
-		MinQty:   0.0001, // Different value
+		MinQty:   0.0001,
 	}
 
 	reg.UpsertMarket(market2)
 
-	// Verify the update
 	retrieved, exists := reg.GetMarket(symbol)
 	if !exists {
 		t.Error("Expected market to exist after update")
@@ -100,13 +96,11 @@ func TestMarketRegistryUpsertMarketUpdate(t *testing.T) {
 func TestMarketRegistryGetMarket(t *testing.T) {
 	reg := NewMarketRegistry()
 
-	// Test getting non-existent market
 	_, exists := reg.GetMarket("NONEXISTENT")
 	if exists {
 		t.Error("GetMarket should return false for non-existent market")
 	}
 
-	// Test getting existing market
 	market := types.Market{
 		Exchange: "binance",
 		Symbol:   "BTCUSDT",
@@ -136,7 +130,6 @@ func TestMarketRegistrySetFee(t *testing.T) {
 
 	reg.SetFee("BTCUSDT", fee)
 
-	// Verify the fee was stored
 	retrieved, exists := reg.GetFee("BTCUSDT")
 	if !exists {
 		t.Error("Expected fee to exist after SetFee")
@@ -150,13 +143,11 @@ func TestMarketRegistrySetFee(t *testing.T) {
 func TestMarketRegistryGetFee(t *testing.T) {
 	reg := NewMarketRegistry()
 
-	// Test getting non-existent fee
 	_, exists := reg.GetFee("NONEXISTENT")
 	if exists {
 		t.Error("GetFee should return false for non-existent fee")
 	}
 
-	// Test getting existing fee
 	fee := types.Fee{
 		TakerBp: 0.08,
 		MakerBp: 0.04,
@@ -177,7 +168,6 @@ func TestMarketRegistryGetFee(t *testing.T) {
 func TestMarketRegistrySnapshot(t *testing.T) {
 	reg := NewMarketRegistry()
 
-	// Add some test data
 	markets := map[string]types.Market{
 		"BTCUSDT": {Exchange: "binance", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
 		"ETHUSDT": {Exchange: "binance", Symbol: "ETHUSDT", Base: "ETH", Quote: "USDT"},
@@ -244,12 +234,10 @@ func TestMarketRegistrySnapshotEmpty(t *testing.T) {
 func TestMarketRegistryConcurrency(t *testing.T) {
 	reg := NewMarketRegistry()
 
-	// Test concurrent operations
 	var wg sync.WaitGroup
 	numGoroutines := 10
 	numOperations := 100
 
-	// Test concurrent market operations
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
 		go func(id int) {
@@ -269,7 +257,6 @@ func TestMarketRegistryConcurrency(t *testing.T) {
 		}(i)
 	}
 
-	// Test concurrent fee operations
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
 		go func(id int) {
@@ -289,7 +276,6 @@ func TestMarketRegistryConcurrency(t *testing.T) {
 
 	wg.Wait()
 
-	// Verify final state
 	marketSnapshot, feeSnapshot := reg.Snapshot()
 	if len(marketSnapshot) == 0 {
 		t.Error("Should have markets after concurrent operations")
@@ -303,10 +289,8 @@ func TestMarketRegistryConcurrency(t *testing.T) {
 func TestMarketRegistryDataIntegrity(t *testing.T) {
 	reg := NewMarketRegistry()
 
-	// Test that data remains consistent across operations
 	symbol := "BTCUSDT"
 
-	// Set initial data
 	market := types.Market{
 		Exchange: "binance",
 		Symbol:   symbol,
@@ -323,7 +307,6 @@ func TestMarketRegistryDataIntegrity(t *testing.T) {
 	reg.UpsertMarket(market)
 	reg.SetFee(symbol, fee)
 
-	// Perform multiple reads
 	for i := 0; i < 10; i++ {
 		retrievedMarket, marketExists := reg.GetMarket(symbol)
 		retrievedFee, feeExists := reg.GetFee(symbol)
@@ -345,7 +328,6 @@ func TestMarketRegistryDataIntegrity(t *testing.T) {
 		}
 	}
 
-	// Test snapshot consistency
 	for i := 0; i < 5; i++ {
 		marketSnapshot, feeSnapshot := reg.Snapshot()
 
@@ -362,7 +344,6 @@ func TestMarketRegistryDataIntegrity(t *testing.T) {
 func TestMarketRegistryCaseSensitivity(t *testing.T) {
 	reg := NewMarketRegistry()
 
-	// Test that symbol lookup is case-sensitive
 	reg.UpsertMarket(types.Market{
 		Exchange: "binance",
 		Symbol:   "BTCUSDT",
@@ -372,13 +353,11 @@ func TestMarketRegistryCaseSensitivity(t *testing.T) {
 
 	reg.SetFee("btcusdt", types.Fee{TakerBp: 0.1, MakerBp: 0.05})
 
-	// Should find with exact case
 	_, marketExists := reg.GetMarket("BTCUSDT")
 	if !marketExists {
 		t.Error("Should find market with exact case")
 	}
 
-	// Should not find with different case (assuming case-sensitive)
 	_, marketExistsLower := reg.GetMarket("btcusdt")
 	if marketExistsLower {
 		t.Error("Should not find market with different case")
@@ -398,9 +377,8 @@ func TestMarketRegistryCaseSensitivity(t *testing.T) {
 func TestMarketRegistryZeroValues(t *testing.T) {
 	reg := NewMarketRegistry()
 
-	// Test with zero values
-	market := types.Market{} // All fields zero
-	fee := types.Fee{}       // All fields zero
+	market := types.Market{}
+	fee := types.Fee{}
 
 	reg.UpsertMarket(market)
 	reg.SetFee("ZERO", fee)
@@ -424,7 +402,6 @@ func TestMarketRegistryZeroValues(t *testing.T) {
 	}
 }
 
-// Benchmark tests
 func BenchmarkMarketRegistryUpsertMarket(b *testing.B) {
 	reg := NewMarketRegistry()
 
@@ -476,7 +453,6 @@ func BenchmarkMarketRegistrySetFee(b *testing.B) {
 func BenchmarkMarketRegistrySnapshot(b *testing.B) {
 	reg := NewMarketRegistry()
 
-	// Add some test data
 	for i := 0; i < 100; i++ {
 		symbol := "TEST" + string(rune(i+65))
 		reg.UpsertMarket(types.Market{

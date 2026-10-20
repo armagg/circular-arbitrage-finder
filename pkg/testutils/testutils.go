@@ -7,14 +7,12 @@ import (
 	"github.com/armagg/circular-arbitrage-finder/pkg/types"
 )
 
-// MockPublisher implements a thread-safe mock publisher for testing
 type MockPublisher struct {
 	mu      sync.RWMutex
 	plans   []types.Plan
 	publish func(plan types.Plan) error
 }
 
-// Ensure MockPublisher implements apiout.Publisher interface
 var _ apiout.Publisher = (*MockPublisher)(nil)
 
 func NewMockPublisher() *MockPublisher {
@@ -56,7 +54,6 @@ func (m *MockPublisher) SetPublishFunc(fn func(plan types.Plan) error) {
 	m.publish = fn
 }
 
-// MockTOBProvider provides mock top-of-book data for testing
 type MockTOBProvider struct {
 	data map[string]types.TopOfBook
 }
@@ -88,7 +85,6 @@ func (m *MockTOBProvider) Clear() {
 	m.data = make(map[string]types.TopOfBook)
 }
 
-// MockFeeProvider provides mock fee data for testing
 type MockFeeProvider struct {
 	data map[string]types.Fee
 }
@@ -112,7 +108,6 @@ func (m *MockFeeProvider) Clear() {
 	m.data = make(map[string]types.Fee)
 }
 
-// CreateTestMarkets creates a set of test markets for common testing scenarios
 func CreateTestMarkets() []types.Market {
 	return []types.Market{
 		{
@@ -162,7 +157,6 @@ func CreateTestMarkets() []types.Market {
 	}
 }
 
-// CreateTestTriangle creates a test triangle from the given markets
 func CreateTestTriangle(markets []types.Market, marketIds [3]int) types.Triangle {
 	if len(markets) < 3 || len(marketIds) != 3 {
 		panic("Need at least 3 markets and 3 market IDs")
@@ -170,18 +164,13 @@ func CreateTestTriangle(markets []types.Market, marketIds [3]int) types.Triangle
 
 	quoteCcy := markets[marketIds[0]].Quote
 
-	// Create proper arbitrage directions for BTC->ETH->BTC cycle
-	// Market 0: BTCUSDT, Market 1: ETHUSDT, Market 2: ETHBTC
-	// To arbitrage: Buy BTC, Sell ETH->BTC, Sell ETH->USDT
-	// This gives us: USDT -> BTC -> ETH -> USDT (back to USDT)
 	return types.Triangle{
 		MarketIds: marketIds,
-		Dirs:      [3]int8{1, 1, -1},  // Buy BTCUSDT, Buy ETHBTC, Sell ETHUSDT
+		Dirs:      [3]int8{1, 1, -1},
 		QuoteCcy:  quoteCcy,
 	}
 }
 
-// CreateTestOrderBook creates a test order book with realistic data
 func CreateTestOrderBook(symbol string, bidPrice, askPrice float64) types.OrderBook {
 	bids := []types.Level{
 		{Price: bidPrice, Qty: 10.0},
@@ -207,22 +196,15 @@ func CreateTestOrderBook(symbol string, bidPrice, askPrice float64) types.OrderB
 	}
 }
 
-// CreateProfitableArbitragePrices creates a set of prices that should result in profitable arbitrage
 func CreateProfitableArbitragePrices() map[string]types.TopOfBook {
-	// Create prices that will result in profitable arbitrage for graph's triangle [1, 2, 0] with directions [1, -1, -1]
-	// Market 1: ETHUSDT (Buy), Market 2: ETHBTC (Sell), Market 0: BTCUSDT (Sell)
-	// Path: USDT -> ETH -> BTC -> USDT
 
-	// Set prices to create clear arbitrage opportunity for this specific triangle
-	// Need to create a rate > 0.001 (0.1%) after fees and slippage
 	return map[string]types.TopOfBook{
-		"ETHUSDT": {BidPx: 3000.0, AskPx: 3005.0, BidSz: 10.0, AskSz: 8.0},      // Buy ETH at 3005 USDT (lower ask price)
-		"ETHBTC":  {BidPx: 0.0605, AskPx: 0.0610, BidSz: 65.0, AskSz: 62.0},     // Sell ETH at 0.0605 BTC (higher bid price)
-		"BTCUSDT": {BidPx: 50100.0, AskPx: 50200.0, BidSz: 2.1, AskSz: 1.8},     // Sell BTC at 50100 USDT (higher bid price)
+		"ETHUSDT": {BidPx: 3000.0, AskPx: 3005.0, BidSz: 10.0, AskSz: 8.0},
+		"ETHBTC":  {BidPx: 0.0605, AskPx: 0.0610, BidSz: 65.0, AskSz: 62.0},
+		"BTCUSDT": {BidPx: 50100.0, AskPx: 50200.0, BidSz: 2.1, AskSz: 1.8},
 	}
 }
 
-// CreateNoArbitragePrices creates a set of prices that should NOT result in profitable arbitrage
 func CreateNoArbitragePrices() map[string]types.TopOfBook {
 	return map[string]types.TopOfBook{
 		"BTCUSDT": {BidPx: 50000.0, AskPx: 50000.0, BidSz: 2.1, AskSz: 1.8},
@@ -231,17 +213,14 @@ func CreateNoArbitragePrices() map[string]types.TopOfBook {
 	}
 }
 
-// SetupTestTriangle creates a complete test setup with triangle markets
 func SetupTestTriangle() (markets []types.Market, triangle types.Triangle) {
 	markets = CreateTestMarkets()
 
-	// Create triangle from first 3 markets
 	triangle = CreateTestTriangle(markets, [3]int{0, 1, 2})
 
 	return markets, triangle
 }
 
-// AssertPlanValid checks if a plan is valid
 func AssertPlanValid(plan types.Plan) bool {
 	if plan.ExpectedProfitQuote <= 0 {
 		return false
@@ -274,7 +253,6 @@ func AssertPlanValid(plan types.Plan) bool {
 	return true
 }
 
-// CreateTestConfig creates a test configuration
 func CreateTestConfig() map[string]interface{} {
 	return map[string]interface{}{
 		"quote_assets": []string{"USDT", "BTC", "ETH"},
@@ -304,7 +282,6 @@ func CreateTestConfig() map[string]interface{} {
 	}
 }
 
-// TestDataBuilder helps build test data in a fluent way
 type TestDataBuilder struct {
 	markets []types.Market
 	tobData map[string]types.TopOfBook

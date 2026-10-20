@@ -220,7 +220,6 @@ func TestConfigGetFee(t *testing.T) {
 }
 
 func TestLoadConfig(t *testing.T) {
-	// Test YAML unmarshaling and quote asset sorting without filesystem operations
 	configYAML := `
 quote_assets:
   - USDT
@@ -250,13 +249,11 @@ log:
 		t.Fatalf("Failed to unmarshal config YAML: %v", err)
 	}
 
-	// Test quote assets (should be sorted by length descending after Load function)
-	expectedQuotes := []string{"USDT", "BTC", "ETH"} // This is the input order
+	expectedQuotes := []string{"USDT", "BTC", "ETH"}
 	if !reflect.DeepEqual(cfg.QuoteAssets, expectedQuotes) {
 		t.Errorf("Expected quote assets %v, got %v", expectedQuotes, cfg.QuoteAssets)
 	}
 
-	// Test fees
 	if cfg.Fees.Default.Taker != 0.1 {
 		t.Errorf("Expected default taker 0.1, got %f", cfg.Fees.Default.Taker)
 	}
@@ -265,7 +262,6 @@ log:
 		t.Errorf("Expected default maker 0.05, got %f", cfg.Fees.Default.Maker)
 	}
 
-	// Test exchange fees
 	binanceFees, ok := cfg.Fees.Exchanges["binance"]
 	if !ok {
 		t.Error("Expected binance fees to exist")
@@ -280,7 +276,6 @@ log:
 		t.Errorf("Expected binance USDT taker 0.08, got %f", usdtFee.Taker)
 	}
 
-	// Test strategy
 	if cfg.Strategy.MinProfitEdge != 0.001 {
 		t.Errorf("Expected min profit edge 0.001, got %f", cfg.Strategy.MinProfitEdge)
 	}
@@ -297,7 +292,6 @@ log:
 		t.Errorf("Expected orderbook depth 10, got %d", cfg.Strategy.OrderbookDepth)
 	}
 
-	// Test log config
 	if cfg.Log.Level != "info" {
 		t.Errorf("Expected log level info, got %s", cfg.Log.Level)
 	}
@@ -317,7 +311,7 @@ func TestLoadConfigErrors(t *testing.T) {
 		{
 			name:        "Empty YAML",
 			yamlContent: "",
-			expectError: false, // Empty YAML unmarshals to zero values
+			expectError: false,
 		},
 		{
 			name: "Valid minimal YAML",
@@ -358,21 +352,17 @@ log:
 }
 
 func TestQuoteAssetSorting(t *testing.T) {
-	// Test the sorting logic that's part of the Load function
 	quoteAssets := []string{"USD", "USDT", "BTC", "ETH"}
 
-	// Apply the same sorting logic as Load function (sort by length descending)
 	sort.Slice(quoteAssets, func(i, j int) bool {
 		return len(quoteAssets[i]) > len(quoteAssets[j])
 	})
 
-	// Expected: USDT (4 chars), then the 3-char assets in original order: USD, BTC, ETH
 	expected := []string{"USDT", "USD", "BTC", "ETH"}
 	if !reflect.DeepEqual(quoteAssets, expected) {
 		t.Errorf("Expected sorted quote assets %v, got %v", expected, quoteAssets)
 	}
 
-	// Verify the sorting logic: longer assets come first
 	if len(quoteAssets[0]) <= len(quoteAssets[1]) {
 		t.Error("First asset should be longer than or equal to second")
 	}
@@ -382,7 +372,6 @@ func TestQuoteAssetSorting(t *testing.T) {
 }
 
 func TestConfigStructs(t *testing.T) {
-	// Test that all config structs can be instantiated
 	cfg := &Config{}
 	if cfg == nil {
 		t.Error("Config should not be nil")
