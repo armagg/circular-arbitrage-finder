@@ -61,9 +61,7 @@ func (s *GRPCServer) PushDeltas(stream mdpb.OrderBookIngress_PushDeltasServer) e
 			a := d.Asks[0]
 			asks = append(asks, types.Level{Price: a.Price, Qty: a.Qty})
 		}
-		// Depth-aware store
 		s.OBStore.Upsert(symbol, toLevels(d.Bids), toLevels(d.Asks), d.Sequence, int64(d.TsNs), s.Config.Strategy.OrderbookDepth)
-		// Maintain legacy TOB for detector/simulator compatibility
 		if len(bids) > 0 && len(asks) > 0 {
 			s.TOBStore.Set(symbol, types.TopOfBook{BidPx: bids[0].Price, BidSz: bids[0].Qty, AskPx: asks[0].Price, AskSz: asks[0].Qty, Seq: d.Sequence, TsNs: int64(d.TsNs)})
 			if s.Detector != nil {

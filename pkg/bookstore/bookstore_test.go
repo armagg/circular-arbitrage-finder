@@ -38,7 +38,6 @@ func TestTopOfBookStoreSet(t *testing.T) {
 
 	store.Set("BTCUSDT", tob)
 
-	// Verify the data was stored
 	retrieved, exists := store.Get("BTCUSDT")
 	if !exists {
 		t.Error("Expected data to exist after Set")
@@ -52,13 +51,11 @@ func TestTopOfBookStoreSet(t *testing.T) {
 func TestTopOfBookStoreGet(t *testing.T) {
 	store := NewTopOfBookStore()
 
-	// Test getting non-existent data
 	_, exists := store.Get("NONEXISTENT")
 	if exists {
 		t.Error("Get should return false for non-existent data")
 	}
 
-	// Test getting existing data
 	tob := types.TopOfBook{BidPx: 50000.0, AskPx: 50005.0}
 	store.Set("BTCUSDT", tob)
 
@@ -75,7 +72,6 @@ func TestTopOfBookStoreGet(t *testing.T) {
 func TestTopOfBookStoreSnapshot(t *testing.T) {
 	store := NewTopOfBookStore()
 
-	// Add some test data
 	data := map[string]types.TopOfBook{
 		"BTCUSDT": {BidPx: 50000.0, AskPx: 50005.0},
 		"ETHUSDT": {BidPx: 3000.0, AskPx: 3005.0},
@@ -105,7 +101,6 @@ func TestTopOfBookStoreSnapshot(t *testing.T) {
 func TestTopOfBookStoreConcurrency(t *testing.T) {
 	store := NewTopOfBookStore()
 
-	// Test concurrent access
 	var wg sync.WaitGroup
 	numGoroutines := 10
 	numOperations := 100
@@ -129,7 +124,6 @@ func TestTopOfBookStoreConcurrency(t *testing.T) {
 
 	wg.Wait()
 
-	// Verify final state
 	_, exists := store.Get("BTCUSDT")
 	if !exists {
 		t.Error("Data should exist after concurrent operations")
@@ -174,14 +168,12 @@ func TestOrderBookStoreUpsert(t *testing.T) {
 		t.Error("Order book should exist after upsert")
 	}
 
-	// Check that bids are sorted descending
 	for i := 1; i < len(retrieved.Bids); i++ {
 		if retrieved.Bids[i].Price > retrieved.Bids[i-1].Price {
 			t.Error("Bids should be sorted descending by price")
 		}
 	}
 
-	// Check that asks are sorted ascending
 	for i := 1; i < len(retrieved.Asks); i++ {
 		if retrieved.Asks[i].Price < retrieved.Asks[i-1].Price {
 			t.Error("Asks should be sorted ascending by price")
@@ -200,7 +192,6 @@ func TestOrderBookStoreUpsert(t *testing.T) {
 func TestOrderBookStoreUpsertWithDepth(t *testing.T) {
 	store := NewOrderBookStore()
 
-	// Create more levels than depth limit
 	bids := []types.Level{
 		{Price: 49990.0, Qty: 2.1},
 		{Price: 49980.0, Qty: 1.5},
@@ -237,13 +228,11 @@ func TestOrderBookStoreUpsertWithDepth(t *testing.T) {
 func TestOrderBookStoreGet(t *testing.T) {
 	store := NewOrderBookStore()
 
-	// Test getting non-existent data
 	_, exists := store.Get("NONEXISTENT")
 	if exists {
 		t.Error("Get should return false for non-existent data")
 	}
 
-	// Test getting existing data
 	orderBook := types.OrderBook{
 		Bids: []types.Level{{Price: 50000.0, Qty: 1.0}},
 		Asks: []types.Level{{Price: 50005.0, Qty: 1.0}},
@@ -265,7 +254,6 @@ func TestOrderBookStoreGet(t *testing.T) {
 	}
 }
 
-// Test the sorting optimization functions
 func TestIsSortedDescending(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -371,14 +359,12 @@ func TestInsertionSortDescending(t *testing.T) {
 
 	insertionSortDescending(levels)
 
-	// Verify sorted descending
 	for i := 1; i < len(levels); i++ {
 		if levels[i].Price > levels[i-1].Price {
 			t.Error("Levels should be sorted descending by price")
 		}
 	}
 
-	// Check specific order
 	expected := []float64{50000.0, 49990.0, 49980.0}
 	for i, level := range levels {
 		if level.Price != expected[i] {
@@ -396,14 +382,12 @@ func TestInsertionSortAscending(t *testing.T) {
 
 	insertionSortAscending(levels)
 
-	// Verify sorted ascending
 	for i := 1; i < len(levels); i++ {
 		if levels[i].Price < levels[i-1].Price {
 			t.Error("Levels should be sorted ascending by price")
 		}
 	}
 
-	// Check specific order
 	expected := []float64{49980.0, 49990.0, 50000.0}
 	for i, level := range levels {
 		if level.Price != expected[i] {
@@ -412,11 +396,9 @@ func TestInsertionSortAscending(t *testing.T) {
 	}
 }
 
-// Test sorting optimization behavior
 func TestSortingOptimization(t *testing.T) {
 	store := NewOrderBookStore()
 
-	// Test with already sorted data (should skip sorting)
 	sortedBids := []types.Level{
 		{Price: 50000.0, Qty: 1.0},
 		{Price: 49990.0, Qty: 1.5},
@@ -432,14 +414,12 @@ func TestSortingOptimization(t *testing.T) {
 
 	retrieved, _ := store.Get("BTCUSDT")
 
-	// Verify bids are still sorted descending
 	for i := 1; i < len(retrieved.Bids); i++ {
 		if retrieved.Bids[i].Price > retrieved.Bids[i-1].Price {
 			t.Error("Bids should remain sorted descending")
 		}
 	}
 
-	// Verify asks are still sorted ascending
 	for i := 1; i < len(retrieved.Asks); i++ {
 		if retrieved.Asks[i].Price < retrieved.Asks[i-1].Price {
 			t.Error("Asks should remain sorted ascending")
@@ -450,7 +430,6 @@ func TestSortingOptimization(t *testing.T) {
 func TestOrderBookStoreConcurrency(t *testing.T) {
 	store := NewOrderBookStore()
 
-	// Test concurrent access
 	var wg sync.WaitGroup
 	numGoroutines := 10
 	numOperations := 50
@@ -476,14 +455,12 @@ func TestOrderBookStoreConcurrency(t *testing.T) {
 
 	wg.Wait()
 
-	// Verify final state
 	_, exists := store.Get("BTCUSDT")
 	if !exists {
 		t.Error("Data should exist after concurrent operations")
 	}
 }
 
-// Benchmark tests for sorting performance
 func BenchmarkInsertionSortDescending(b *testing.B) {
 	levels := make([]types.Level, 32)
 	for i := range levels {

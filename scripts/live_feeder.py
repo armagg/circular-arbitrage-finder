@@ -105,9 +105,6 @@ def main():
                 args.exchange, markets, args.ingress, args.interval,
                 args.depth)
 
-    # PushDeltas is client-streaming: keep one stream open; on any error
-    # reconnect with fresh sequence numbers (finder treats each delta as
-    # a snapshot, so a reset is harmless).
     seq = 1
     while True:
         try:
@@ -119,7 +116,7 @@ def main():
         except KeyboardInterrupt:
             return
         except Exception:
-            seq += 1_000_000  # keep sequences monotonic across resets
+            seq += 1_000_000
             logger.exception("stream to %s broke; reconnecting in 5s",
                              args.ingress)
             time.sleep(5)

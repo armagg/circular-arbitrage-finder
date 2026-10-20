@@ -53,7 +53,6 @@ func TestMakeTriangle(t *testing.T) {
 func TestIndexAddMarket(t *testing.T) {
 	idx := NewIndex()
 
-	// Add first market
 	market1 := types.Market{
 		Exchange: "binance",
 		Symbol:   "BTCUSDT",
@@ -79,7 +78,6 @@ func TestIndexAddMarket(t *testing.T) {
 		t.Error("Market should be stored correctly")
 	}
 
-	// Add second market
 	market2 := types.Market{
 		Exchange: "binance",
 		Symbol:   "ETHUSDT",
@@ -101,7 +99,6 @@ func TestIndexAddMarket(t *testing.T) {
 		t.Errorf("Expected 2 markets, got %d", len(idx.Markets))
 	}
 
-	// Add third market that creates a triangle
 	market3 := types.Market{
 		Exchange: "binance",
 		Symbol:   "ETHBTC",
@@ -138,13 +135,11 @@ func TestIndexAddMarketDuplicate(t *testing.T) {
 		Quote:    "USDT",
 	}
 
-	// Add market first time
 	_, isNew1 := idx.AddMarket(market)
 	if !isNew1 {
 		t.Error("First addition should be new")
 	}
 
-	// Add same market again
 	_, isNew2 := idx.AddMarket(market)
 	if isNew2 {
 		t.Error("Second addition should not be new")
@@ -158,7 +153,6 @@ func TestIndexAddMarketDuplicate(t *testing.T) {
 func TestIndexTriangleCreation(t *testing.T) {
 	idx := NewIndex()
 
-	// Create a complete triangle: BTC/USDT -> ETH/BTC -> ETH/USDT
 	markets := []types.Market{
 		{Exchange: "binance", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
 		{Exchange: "binance", Symbol: "ETHBTC", Base: "ETH", Quote: "BTC"},
@@ -171,13 +165,11 @@ func TestIndexTriangleCreation(t *testing.T) {
 			t.Errorf("Market %d should be new", i)
 		}
 
-		// Third market should create triangles
 		if i == 2 {
 			if len(triangles) == 0 {
 				t.Error("Third market should create triangles")
 			}
 
-			// Verify triangle structure
 			for _, triangle := range triangles {
 				if len(triangle.MarketIds) != 3 {
 					t.Errorf("Triangle should have 3 market IDs, got %d", len(triangle.MarketIds))
@@ -187,7 +179,6 @@ func TestIndexTriangleCreation(t *testing.T) {
 					t.Errorf("Triangle should have USDT as quote currency, got %s", triangle.QuoteCcy)
 				}
 
-				// Verify market IDs are valid
 				for _, marketID := range triangle.MarketIds {
 					if marketID < 0 || marketID >= len(idx.Markets) {
 						t.Errorf("Invalid market ID %d", marketID)
@@ -201,7 +192,6 @@ func TestIndexTriangleCreation(t *testing.T) {
 		t.Error("Triangles should be created")
 	}
 
-	// Verify triangles are indexed by market
 	for marketID, triangles := range idx.TrianglesByMarket {
 		if len(triangles) == 0 {
 			t.Errorf("Market %d should have triangles", marketID)
@@ -218,7 +208,6 @@ func TestIndexTriangleCreation(t *testing.T) {
 func TestIndexComplexTriangleFinding(t *testing.T) {
 	idx := NewIndex()
 
-	// Create a more complex market graph
 	markets := []types.Market{
 		{Exchange: "binance", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
 		{Exchange: "binance", Symbol: "ETHUSDT", Base: "ETH", Quote: "USDT"},
@@ -232,7 +221,6 @@ func TestIndexComplexTriangleFinding(t *testing.T) {
 		idx.AddMarket(market)
 	}
 
-	// Should find multiple triangles
 	if len(idx.Triangles) == 0 {
 		t.Error("Should find triangles in complex graph")
 	}
@@ -247,12 +235,10 @@ func TestIndexComplexTriangleFinding(t *testing.T) {
 func TestIndexConcurrency(t *testing.T) {
 	idx := NewIndex()
 
-	// Test concurrent reads (AddMarket already has mutex protection)
 	var wg sync.WaitGroup
 	numGoroutines := 5
 	numOperations := 100
 
-	// First add some markets
 	for i := 0; i < 10; i++ {
 		market := types.Market{
 			Exchange: "binance",
@@ -263,13 +249,11 @@ func TestIndexConcurrency(t *testing.T) {
 		idx.AddMarket(market)
 	}
 
-	// Test concurrent reads of the index
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for j := 0; j < numOperations; j++ {
-				// Test concurrent reads
 				_ = len(idx.Markets)
 				_ = len(idx.Triangles)
 			}
@@ -278,7 +262,6 @@ func TestIndexConcurrency(t *testing.T) {
 
 	wg.Wait()
 
-	// Verify data integrity
 	if len(idx.Markets) != 10 {
 		t.Errorf("Expected 10 markets, got %d", len(idx.Markets))
 	}
@@ -296,7 +279,6 @@ func TestIndexMarketIndexing(t *testing.T) {
 
 	idx.AddMarket(market)
 
-	// Test case-insensitive lookup (but index stores uppercase)
 	key1 := "BINANCE:BTCUSDT"
 
 	if _, exists := idx.MarketIndexBySymbol[key1]; !exists {
@@ -307,7 +289,6 @@ func TestIndexMarketIndexing(t *testing.T) {
 func TestIndexFindNewTrianglesEdgeCases(t *testing.T) {
 	idx := NewIndex()
 
-	// Test with no existing markets
 	market := types.Market{
 		Exchange: "binance",
 		Symbol:   "BTCUSDT",
@@ -321,13 +302,11 @@ func TestIndexFindNewTrianglesEdgeCases(t *testing.T) {
 		t.Errorf("Should find no triangles with single market, got %d", len(triangles))
 	}
 
-	// Add the market first
 	idx.Markets = append(idx.Markets, market)
 	idx.MarketIndexBySymbol["binance:btcusdt"] = 0
 	idx.marketsByExchange["binance"] = make(map[string]int)
 	idx.marketsByExchange["binance"]["btc/usdt"] = 0
 
-	// Test with one existing market
 	newMarket := types.Market{
 		Exchange: "binance",
 		Symbol:   "ETHUSDT",
@@ -345,7 +324,6 @@ func TestIndexFindNewTrianglesEdgeCases(t *testing.T) {
 func TestIndexMultipleExchanges(t *testing.T) {
 	idx := NewIndex()
 
-	// Add markets from different exchanges
 	markets := []types.Market{
 		{Exchange: "binance", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
 		{Exchange: "coinbase", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
@@ -357,7 +335,6 @@ func TestIndexMultipleExchanges(t *testing.T) {
 		idx.AddMarket(market)
 	}
 
-	// Should have separate indexing for each exchange
 	if len(idx.marketsByExchange) != 2 {
 		t.Errorf("Expected 2 exchanges, got %d", len(idx.marketsByExchange))
 	}
@@ -374,7 +351,6 @@ func TestIndexMultipleExchanges(t *testing.T) {
 func TestIndexSnapshotConsistency(t *testing.T) {
 	idx := NewIndex()
 
-	// Add some markets and create triangles
 	markets := []types.Market{
 		{Exchange: "binance", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
 		{Exchange: "binance", Symbol: "ETHUSDT", Base: "ETH", Quote: "USDT"},
@@ -385,13 +361,11 @@ func TestIndexSnapshotConsistency(t *testing.T) {
 		idx.AddMarket(market)
 	}
 
-	// Verify data consistency
 	for i, market := range idx.Markets {
 		if market.Symbol == "" {
 			t.Errorf("Market %d has empty symbol", i)
 		}
 
-		// Verify reverse indexing (index uses uppercase)
 		key := strings.ToUpper(market.Exchange) + ":" + strings.ToUpper(market.Symbol)
 		if marketID, exists := idx.MarketIndexBySymbol[key]; !exists {
 			t.Errorf("Market %s not found in index", key)
@@ -400,7 +374,6 @@ func TestIndexSnapshotConsistency(t *testing.T) {
 		}
 	}
 
-	// Verify triangle consistency
 	for triangleID, triangle := range idx.Triangles {
 		for _, marketID := range triangle.MarketIds {
 			if marketID < 0 || marketID >= len(idx.Markets) {
@@ -408,7 +381,6 @@ func TestIndexSnapshotConsistency(t *testing.T) {
 			}
 		}
 
-		// Verify reverse indexing
 		for _, marketID := range triangle.MarketIds {
 			found := false
 			for _, triID := range idx.TrianglesByMarket[marketID] {
@@ -424,7 +396,6 @@ func TestIndexSnapshotConsistency(t *testing.T) {
 	}
 }
 
-// Benchmark tests
 func BenchmarkIndexAddMarket(b *testing.B) {
 	idx := NewIndex()
 
@@ -444,7 +415,6 @@ func BenchmarkIndexAddMarket(b *testing.B) {
 func BenchmarkIndexFindNewTriangles(b *testing.B) {
 	idx := NewIndex()
 
-	// Set up some existing markets
 	for i := 0; i < 10; i++ {
 		market := types.Market{
 			Exchange: "binance",

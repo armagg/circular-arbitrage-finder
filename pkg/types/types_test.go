@@ -141,12 +141,10 @@ func TestOrderBook(t *testing.T) {
 		t.Errorf("Expected timestamp 1640995200000000000, got %d", orderBook.TsNs)
 	}
 
-	// Test bid ordering (should be descending)
 	if orderBook.Bids[0].Price <= orderBook.Bids[1].Price {
 		t.Error("Bids should be ordered descending by price")
 	}
 
-	// Test ask ordering (should be ascending)
 	if orderBook.Asks[0].Price >= orderBook.Asks[1].Price {
 		t.Error("Asks should be ordered ascending by price")
 	}
@@ -241,9 +239,7 @@ func TestPlan(t *testing.T) {
 	}
 }
 
-// Test data integrity and serialization compatibility
 func TestTypeCompatibility(t *testing.T) {
-	// Test that all types can be created and compared
 	market1 := Market{Exchange: "test", Symbol: "TEST"}
 	market2 := Market{Exchange: "test", Symbol: "TEST"}
 

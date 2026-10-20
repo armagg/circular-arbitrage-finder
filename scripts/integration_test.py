@@ -17,14 +17,12 @@ import argparse
 import logging
 from pathlib import Path
 
-# Setup paths
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(THIS_DIR, ".."))
 
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -43,19 +41,16 @@ class IntegrationTest:
 
     def check_dependencies(self):
         """Check that all required components are available."""
-        # Check Go binary
         if not os.path.exists(self.go_binary_path):
             self.logger.error(f"Go binary not found at: {self.go_binary_path}")
             self.logger.info("Please build the Go binary first:")
             self.logger.info("  cd /path/to/project && go build -o bin/arb-finder ./cmd/arb-finder")
             return False
 
-        # Check config file
         if not os.path.exists(self.config_path):
             self.logger.error(f"Config file not found at: {self.config_path}")
             return False
 
-        # Check Python scripts
         feeder_script = os.path.join(THIS_DIR, "market_data_feeder.py")
         logger_script = os.path.join(THIS_DIR, "strategy_logger.py")
 
@@ -125,7 +120,6 @@ class IntegrationTest:
                 "--interval", "0.5"
             ]
 
-            # Run feeder with timeout
             process = subprocess.Popen(
                 cmd,
                 cwd=THIS_DIR,
@@ -134,7 +128,6 @@ class IntegrationTest:
                 text=True
             )
 
-            # Wait for specified duration
             try:
                 process.wait(timeout=duration)
                 self.logger.info("Market data feeder completed successfully")
@@ -157,7 +150,6 @@ class IntegrationTest:
             all_running = True
             for name, process in self.processes:
                 if process.poll() is not None:
-                    # Process has finished
                     stdout, stderr = process.communicate()
                     if stdout:
                         self.logger.info(f"{name} stdout: {stdout.strip()}")
@@ -195,28 +187,22 @@ class IntegrationTest:
         self.logger.info(f"Test duration: {duration} seconds")
 
         try:
-            # Check dependencies
             if not self.check_dependencies():
                 return False
 
-            # Start services
             if not self.start_go_service():
                 return False
 
-            # Give Go service time to start
             time.sleep(2)
 
             if not self.start_strategy_logger():
                 return False
 
-            # Give strategy logger time to start
             time.sleep(1)
 
-            # Run market data feeder
             if not self.run_market_data_feeder(mode, duration):
                 return False
 
-            # Monitor processes
             self.monitor_processes(duration + 5)
 
             self.logger.info("Integration test completed successfully!")
@@ -247,10 +233,8 @@ def main():
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    # Create integration test
     test = IntegrationTest(args.go_binary, args.config)
 
-    # Run test
     success = test.run_test(args.mode, args.duration)
 
     if success:

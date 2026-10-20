@@ -13,7 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// MockPublisher implements the Publisher interface for testing
 type MockPublisher struct {
 	mu      sync.Mutex
 	plans   []types.Plan
@@ -91,7 +90,6 @@ func TestDetectorOnMarketChangeNoTriangles(t *testing.T) {
 
 	detector := NewDetector(idx, books, reg, sim, pub)
 
-	// Add a single market (no triangles possible)
 	market := types.Market{
 		Exchange: "binance",
 		Symbol:   "BTCUSDT",
@@ -101,7 +99,6 @@ func TestDetectorOnMarketChangeNoTriangles(t *testing.T) {
 
 	idx.AddMarket(market)
 
-	// This should not panic and should not publish anything
 	detector.OnMarketChange("binance", "BTCUSDT", 1000.0)
 
 	published := pub.GetPublishedPlans()
@@ -119,7 +116,6 @@ func TestDetectorOnMarketChangeUnknownMarket(t *testing.T) {
 
 	detector := NewDetector(idx, books, reg, sim, pub)
 
-	// Try to detect arbitrage for unknown market
 	detector.OnMarketChange("binance", "UNKNOWN", 1000.0)
 
 	published := pub.GetPublishedPlans()
@@ -137,7 +133,6 @@ func TestDetectorOnMarketChangeWithTriangles(t *testing.T) {
 
 	detector := NewDetector(idx, books, reg, sim, pub)
 
-	// Create a triangle of markets
 	markets := []types.Market{
 		{Exchange: "binance", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
 		{Exchange: "binance", Symbol: "ETHUSDT", Base: "ETH", Quote: "USDT"},
@@ -150,7 +145,6 @@ func TestDetectorOnMarketChangeWithTriangles(t *testing.T) {
 		reg.SetFee(market.Symbol, types.Fee{TakerBp: 0.1, MakerBp: 0.05})
 	}
 
-	// Set up profitable arbitrage prices
 	tobData := map[string]types.TopOfBook{
 		"BTCUSDT": {BidPx: 49900.0, AskPx: 50000.0, BidSz: 2.1, AskSz: 1.8},
 		"ETHUSDT": {BidPx: 2990.0, AskPx: 3000.0, BidSz: 10.0, AskSz: 8.0},
@@ -161,12 +155,10 @@ func TestDetectorOnMarketChangeWithTriangles(t *testing.T) {
 		books.Set(symbol, tob)
 	}
 
-	// This should find profitable arbitrage
 	detector.OnMarketChange("binance", "BTCUSDT", 1000.0)
 
 	published := pub.GetPublishedPlans()
 
-	// The detector may or may not find profitable arbitrage depending on prices and settings
 	t.Logf("Published %d plans", len(published))
 
 	for _, plan := range published {
@@ -193,7 +185,6 @@ func TestDetectorOnMarketChangeCaseInsensitive(t *testing.T) {
 
 	detector := NewDetector(idx, books, reg, sim, pub)
 
-	// Add market with uppercase
 	market := types.Market{
 		Exchange: "BINANCE",
 		Symbol:   "BTCUSDT",
@@ -203,10 +194,8 @@ func TestDetectorOnMarketChangeCaseInsensitive(t *testing.T) {
 
 	idx.AddMarket(market)
 
-	// Try to detect with mixed case
 	detector.OnMarketChange("Binance", "btcusdt", 1000.0)
 
-	// Should not panic (this tests case insensitivity)
 }
 
 func TestDetectorOnMarketChangeMissingData(t *testing.T) {
@@ -218,7 +207,6 @@ func TestDetectorOnMarketChangeMissingData(t *testing.T) {
 
 	detector := NewDetector(idx, books, reg, sim, pub)
 
-	// Create triangle but don't set up all data
 	markets := []types.Market{
 		{Exchange: "binance", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
 		{Exchange: "binance", Symbol: "ETHUSDT", Base: "ETH", Quote: "USDT"},
@@ -231,15 +219,12 @@ func TestDetectorOnMarketChangeMissingData(t *testing.T) {
 		reg.SetFee(market.Symbol, types.Fee{TakerBp: 0.1, MakerBp: 0.05})
 	}
 
-	// Only set up partial data (missing ETHBTC)
 	books.Set("BTCUSDT", types.TopOfBook{BidPx: 50000.0, AskPx: 50010.0})
 	books.Set("ETHUSDT", types.TopOfBook{BidPx: 3000.0, AskPx: 3010.0})
-	// Missing ETHBTC data
 
 	detector.OnMarketChange("binance", "BTCUSDT", 1000.0)
 
 	published := pub.GetPublishedPlans()
-	// Should not publish plans due to missing data
 	t.Logf("Published %d plans with missing data", len(published))
 }
 
@@ -252,7 +237,6 @@ func TestDetectorOnMarketChangeInvalidPrices(t *testing.T) {
 
 	detector := NewDetector(idx, books, reg, sim, pub)
 
-	// Create triangle
 	markets := []types.Market{
 		{Exchange: "binance", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
 		{Exchange: "binance", Symbol: "ETHUSDT", Base: "ETH", Quote: "USDT"},
@@ -265,9 +249,8 @@ func TestDetectorOnMarketChangeInvalidPrices(t *testing.T) {
 		reg.SetFee(market.Symbol, types.Fee{TakerBp: 0.1, MakerBp: 0.05})
 	}
 
-	// Set up invalid prices (zero or negative)
 	tobData := map[string]types.TopOfBook{
-		"BTCUSDT": {BidPx: 0, AskPx: 0, BidSz: 2.1, AskSz: 1.8}, // Invalid prices
+		"BTCUSDT": {BidPx: 0, AskPx: 0, BidSz: 2.1, AskSz: 1.8},
 		"ETHUSDT": {BidPx: 3000.0, AskPx: 3010.0, BidSz: 10.0, AskSz: 8.0},
 		"ETHBTC":  {BidPx: 0.06, AskPx: 0.0602, BidSz: 65.0, AskSz: 62.0},
 	}
@@ -279,7 +262,6 @@ func TestDetectorOnMarketChangeInvalidPrices(t *testing.T) {
 	detector.OnMarketChange("binance", "BTCUSDT", 1000.0)
 
 	published := pub.GetPublishedPlans()
-	// Should not publish plans due to invalid prices
 	t.Logf("Published %d plans with invalid prices", len(published))
 }
 
@@ -292,7 +274,6 @@ func TestDetectorConcurrency(t *testing.T) {
 
 	detector := NewDetector(idx, books, reg, sim, pub)
 
-	// Set up basic market data
 	market := types.Market{
 		Exchange: "binance",
 		Symbol:   "BTCUSDT",
@@ -305,7 +286,6 @@ func TestDetectorConcurrency(t *testing.T) {
 	reg.SetFee(market.Symbol, types.Fee{TakerBp: 0.1, MakerBp: 0.05})
 	books.Set("BTCUSDT", types.TopOfBook{BidPx: 50000.0, AskPx: 50010.0})
 
-	// Test concurrent calls
 	var wg sync.WaitGroup
 	numGoroutines := 10
 	numCalls := 100
@@ -322,7 +302,6 @@ func TestDetectorConcurrency(t *testing.T) {
 
 	wg.Wait()
 
-	// Should not have panicked and should have processed all calls
 	t.Logf("Processed %d concurrent calls successfully", numGoroutines*numCalls)
 }
 
@@ -335,7 +314,6 @@ func TestDetectorMultipleTriangles(t *testing.T) {
 
 	detector := NewDetector(idx, books, reg, sim, pub)
 
-	// Create multiple triangles
 	markets := []types.Market{
 		{Exchange: "binance", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
 		{Exchange: "binance", Symbol: "ETHUSDT", Base: "ETH", Quote: "USDT"},
@@ -351,7 +329,6 @@ func TestDetectorMultipleTriangles(t *testing.T) {
 		reg.SetFee(market.Symbol, types.Fee{TakerBp: 0.1, MakerBp: 0.05})
 	}
 
-	// Set up prices for all markets
 	tobData := map[string]types.TopOfBook{
 		"BTCUSDT": {BidPx: 50000.0, AskPx: 50010.0, BidSz: 2.1, AskSz: 1.8},
 		"ETHUSDT": {BidPx: 3000.0, AskPx: 3010.0, BidSz: 10.0, AskSz: 8.0},
@@ -365,13 +342,11 @@ func TestDetectorMultipleTriangles(t *testing.T) {
 		books.Set(symbol, tob)
 	}
 
-	// Trigger detection on one market
 	detector.OnMarketChange("binance", "BTCUSDT", 1000.0)
 
 	published := pub.GetPublishedPlans()
 	t.Logf("Published %d plans from multiple triangles", len(published))
 
-	// Verify that we found some profitable arbitrage opportunities
 	if len(published) == 0 {
 		t.Log("No profitable arbitrage found (this may be expected depending on prices)")
 	} else {
@@ -438,7 +413,6 @@ func TestMockPublisherConcurrency(t *testing.T) {
 	}
 }
 
-// Benchmark tests
 func BenchmarkDetectorOnMarketChange(b *testing.B) {
 	idx := graph.NewIndex()
 	books := bookstore.NewTopOfBookStore()
@@ -448,7 +422,6 @@ func BenchmarkDetectorOnMarketChange(b *testing.B) {
 
 	detector := NewDetector(idx, books, reg, sim, pub)
 
-	// Set up a single market
 	market := types.Market{
 		Exchange: "binance",
 		Symbol:   "BTCUSDT",
@@ -476,7 +449,6 @@ func BenchmarkDetectorOnMarketChangeWithTriangles(b *testing.B) {
 
 	detector := NewDetector(idx, books, reg, sim, pub)
 
-	// Set up triangle markets
 	markets := []types.Market{
 		{Exchange: "binance", Symbol: "BTCUSDT", Base: "BTC", Quote: "USDT"},
 		{Exchange: "binance", Symbol: "ETHUSDT", Base: "ETH", Quote: "USDT"},
@@ -505,12 +477,9 @@ func BenchmarkDetectorOnMarketChangeWithTriangles(b *testing.B) {
 	}
 }
 
-// Test logging behavior (without actually logging)
 func TestDetectorLogging(t *testing.T) {
-	// Save original logger level
 	originalLevel := logrus.GetLevel()
 
-	// Set to panic level to suppress logs during test
 	logrus.SetLevel(logrus.PanicLevel)
 	defer logrus.SetLevel(originalLevel)
 
@@ -522,6 +491,5 @@ func TestDetectorLogging(t *testing.T) {
 
 	detector := NewDetector(idx, books, reg, sim, pub)
 
-	// This should not log anything due to panic level
 	detector.OnMarketChange("binance", "UNKNOWN", 1000.0)
 }
