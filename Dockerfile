@@ -9,6 +9,7 @@ RUN go mod download
 
 COPY cmd/ ./cmd/
 COPY pkg/ ./pkg/
+COPY proto/ ./proto/
 COPY config.yaml ./
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o arb-finder ./cmd/arb-finder
