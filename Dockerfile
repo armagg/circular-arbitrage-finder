@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine AS builder
+FROM golang:1.27.3-alpine3.24 AS builder
 
 WORKDIR /app
 
@@ -13,7 +13,7 @@ COPY config.yaml ./
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o arb-finder ./cmd/arb-finder
 
-FROM alpine:3.20
+FROM alpine:3.24
 
 RUN apk add --no-cache ca-certificates tzdata
 
