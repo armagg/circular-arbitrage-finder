@@ -8,9 +8,8 @@ import json
 import argparse
 import logging
 from datetime import datetime
-from typing import List, Dict
+from typing import Dict
 from concurrent import futures
-import shutil
 
 import grpc
 from dotenv import load_dotenv
@@ -23,6 +22,14 @@ GEN_DIR = os.path.join(ROOT, "pygen")
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
+if __package__:
+    from . import _proto_stubs
+else:
+    try:
+        import _proto_stubs
+    except ImportError:
+        from scripts import _proto_stubs
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -32,54 +39,12 @@ logger = logging.getLogger(__name__)
 
 def ensure_python_stubs():
     """Generate Python protobuf stubs if they don't exist."""
-    try:
-        import importlib
-        importlib.import_module("pygen.exec.executor_pb2")
-        importlib.import_module("pygen.exec.executor_pb2_grpc")
-        return
-    except Exception:
-        pass
-
-    logger.info("Generating Python protobuf stubs...")
-
-    os.makedirs(GEN_DIR, exist_ok=True)
-    os.makedirs(os.path.join(GEN_DIR, "exec"), exist_ok=True)
-
-    try:
-        from grpc_tools import protoc
-
-        args = [
-            "protoc",
-            f"-I{PROTO_DIR}",
-            f"--python_out={GEN_DIR}",
-            f"--grpc_python_out={GEN_DIR}",
-            os.path.join(PROTO_DIR, "executor.proto"),
-        ]
-
-        if protoc.main(args) != 0:
-            logger.error("protoc python generation failed")
-            sys.exit(1)
-
-        src_pb = os.path.join(GEN_DIR, "executor_pb2.py")
-        src_grpc = os.path.join(GEN_DIR, "executor_pb2_grpc.py")
-        dst_dir = os.path.join(GEN_DIR, "exec")
-
-        if os.path.exists(src_pb):
-            shutil.move(src_pb, os.path.join(dst_dir, "executor_pb2.py"))
-        if os.path.exists(src_grpc):
-            shutil.move(src_grpc, os.path.join(dst_dir, "executor_pb2_grpc.py"))
-
-        for p in [GEN_DIR, dst_dir]:
-            initp = os.path.join(p, "__init__.py")
-            if not os.path.exists(initp):
-                with open(initp, "w") as f:
-                    f.write("")
-
-        logger.info("Protobuf stubs generated successfully")
-
-    except ImportError:
-        logger.error("grpc_tools not found. Install with: pip install grpcio-tools")
-        sys.exit(1)
+    _proto_stubs.ensure_python_stubs(
+        [("executor.proto", "exec")],
+        proto_dir=PROTO_DIR,
+        gen_dir=GEN_DIR,
+        logger=logger,
+    )
 
 
 class StrategyLogger:
@@ -231,16 +196,15 @@ class ExecutorServicer:
 
             self.strategy_logger.log_strategy(strategy_data)
 
-            response = {"accepted": True, "reason": "Strategy logged successfully"}
             self.logger.debug(f"Accepted strategy {request.plan_id}")
 
-            sys.path.insert(0, os.path.join(GEN_DIR, "exec"))
+            _proto_stubs.ensure_sys_path(os.path.join(GEN_DIR, "exec"))
             import executor_pb2
             return executor_pb2.ProposeReply(accepted=True, reason="Strategy logged successfully")
 
         except Exception as e:
             self.logger.error(f"Error processing strategy {request.plan_id}: {e}")
-            sys.path.insert(0, os.path.join(GEN_DIR, "exec"))
+            _proto_stubs.ensure_sys_path(os.path.join(GEN_DIR, "exec"))
             import executor_pb2
             return executor_pb2.ProposeReply(accepted=False, reason=f"Error: {str(e)}")
 
@@ -270,7 +234,7 @@ def main():
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=4))
 
-    sys.path.insert(0, os.path.join(GEN_DIR, "exec"))
+    _proto_stubs.ensure_sys_path(os.path.join(GEN_DIR, "exec"))
     import executor_pb2_grpc
 
     servicer = ExecutorServicer(logger_instance)

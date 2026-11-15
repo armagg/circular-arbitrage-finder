@@ -5,10 +5,8 @@ import os
 import sys
 import time
 import subprocess
-import signal
 import argparse
 import logging
-from pathlib import Path
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(THIS_DIR, ".."))
