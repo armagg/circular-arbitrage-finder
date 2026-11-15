@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import os
 import sys
-import shutil
 import time
 from concurrent import futures
 
@@ -15,48 +14,27 @@ GEN_DIR = os.path.join(ROOT, "pygen")
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
+if __package__:
+    from . import _proto_stubs
+else:
+    try:
+        import _proto_stubs
+    except ImportError:
+        from scripts import _proto_stubs
+
 
 def ensure_python_stubs():
-    try:
-        import importlib
-
-        importlib.import_module("pygen.exec.executor_pb2")
-        importlib.import_module("pygen.exec.executor_pb2_grpc")
-        return
-    except Exception:
-        pass
-    os.makedirs(GEN_DIR, exist_ok=True)
-    os.makedirs(os.path.join(GEN_DIR, "exec"), exist_ok=True)
-    from grpc_tools import protoc
-
-    args = [
-        "protoc",
-        f"-I{PROTO_DIR}",
-        f"--python_out={GEN_DIR}",
-        f"--grpc_python_out={GEN_DIR}",
-        os.path.join(PROTO_DIR, "executor.proto"),
-    ]
-    if protoc.main(args) != 0:
-        print("protoc python generation failed", file=sys.stderr)
-        sys.exit(1)
-    src_pb = os.path.join(GEN_DIR, "executor_pb2.py")
-    src_grpc = os.path.join(GEN_DIR, "executor_pb2_grpc.py")
-    dst_dir = os.path.join(GEN_DIR, "exec")
-    if os.path.exists(src_pb):
-        shutil.move(src_pb, os.path.join(dst_dir, "executor_pb2.py"))
-    if os.path.exists(src_grpc):
-        shutil.move(src_grpc, os.path.join(dst_dir, "executor_pb2_grpc.py"))
-    for p in [GEN_DIR, os.path.join(GEN_DIR, "exec")]:
-        initp = os.path.join(p, "__init__.py")
-        if not os.path.exists(initp):
-            with open(initp, "w") as f:
-                f.write("")
+    _proto_stubs.ensure_python_stubs(
+        [("executor.proto", "exec")],
+        proto_dir=PROTO_DIR,
+        gen_dir=GEN_DIR,
+    )
 
 
 def main():
     load_dotenv(os.path.join(ROOT, ".env"))
     ensure_python_stubs()
-    sys.path.insert(0, os.path.join(GEN_DIR, "exec"))
+    _proto_stubs.ensure_sys_path(os.path.join(GEN_DIR, "exec"))
     import executor_pb2_grpc, executor_pb2
 
     class ExecutorServicer(executor_pb2_grpc.ExecutorServicer):

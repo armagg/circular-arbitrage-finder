@@ -7,8 +7,7 @@ import time
 import random
 import argparse
 import logging
-from typing import List, Dict, Iterator
-import shutil
+from typing import List, Dict
 
 import grpc
 from dotenv import load_dotenv
@@ -21,6 +20,14 @@ GEN_DIR = os.path.join(ROOT, "pygen")
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
+if __package__:
+    from . import _proto_stubs
+else:
+    try:
+        import _proto_stubs
+    except ImportError:
+        from scripts import _proto_stubs
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -30,54 +37,12 @@ logger = logging.getLogger(__name__)
 
 def ensure_python_stubs():
     """Generate Python protobuf stubs if they don't exist."""
-    try:
-        import importlib
-        importlib.import_module("pygen.md.marketdata_pb2")
-        importlib.import_module("pygen.md.marketdata_pb2_grpc")
-        return
-    except Exception:
-        pass
-
-    logger.info("Generating Python protobuf stubs...")
-
-    os.makedirs(GEN_DIR, exist_ok=True)
-    os.makedirs(os.path.join(GEN_DIR, "md"), exist_ok=True)
-
-    try:
-        from grpc_tools import protoc
-
-        args = [
-            "protoc",
-            f"-I{PROTO_DIR}",
-            f"--python_out={GEN_DIR}",
-            f"--grpc_python_out={GEN_DIR}",
-            os.path.join(PROTO_DIR, "marketdata.proto"),
-        ]
-
-        if protoc.main(args) != 0:
-            logger.error("protoc python generation failed")
-            sys.exit(1)
-
-        src_pb = os.path.join(GEN_DIR, "marketdata_pb2.py")
-        src_grpc = os.path.join(GEN_DIR, "marketdata_pb2_grpc.py")
-        dst_dir = os.path.join(GEN_DIR, "md")
-
-        if os.path.exists(src_pb):
-            shutil.move(src_pb, os.path.join(dst_dir, "marketdata_pb2.py"))
-        if os.path.exists(src_grpc):
-            shutil.move(src_grpc, os.path.join(dst_dir, "marketdata_pb2_grpc.py"))
-
-        for p in [GEN_DIR, dst_dir]:
-            initp = os.path.join(p, "__init__.py")
-            if not os.path.exists(initp):
-                with open(initp, "w") as f:
-                    f.write("")
-
-        logger.info("Protobuf stubs generated successfully")
-
-    except ImportError:
-        logger.error("grpc_tools not found. Install with: pip install grpcio-tools")
-        sys.exit(1)
+    _proto_stubs.ensure_python_stubs(
+        [("marketdata.proto", "md")],
+        proto_dir=PROTO_DIR,
+        gen_dir=GEN_DIR,
+        logger=logger,
+    )
 
 
 class MarketDataGenerator:
@@ -129,7 +94,7 @@ class MarketDataGenerator:
 
     def create_orderbook_delta(self, symbol: str, exchange: str = "BINANCE", is_snapshot: bool = False):
         """Create an OrderBookDelta message."""
-        sys.path.insert(0, os.path.join(GEN_DIR, "md"))
+        _proto_stubs.ensure_sys_path(os.path.join(GEN_DIR, "md"))
         import marketdata_pb2
 
         bids = self.generate_realistic_levels(symbol, "bid")
@@ -176,7 +141,7 @@ class MarketDataFeeder:
         """Establish gRPC connection."""
         try:
             channel = grpc.insecure_channel(self.server_address)
-            sys.path.insert(0, os.path.join(GEN_DIR, "md"))
+            _proto_stubs.ensure_sys_path(os.path.join(GEN_DIR, "md"))
             import marketdata_pb2_grpc
             stub = marketdata_pb2_grpc.OrderBookIngressStub(channel)
             return stub
@@ -212,7 +177,7 @@ class MarketDataFeeder:
         arb_prices = self.generator.get_arbitrage_opportunity()
 
         for symbol, prices in arb_prices.items():
-            sys.path.insert(0, os.path.join(GEN_DIR, "md"))
+            _proto_stubs.ensure_sys_path(os.path.join(GEN_DIR, "md"))
             import marketdata_pb2
 
             bids = [marketdata_pb2.Level(price=prices["bid"] - i, qty=10.0 / (i + 1)) for i in range(3)]
